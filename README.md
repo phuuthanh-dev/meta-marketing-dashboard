@@ -1,16 +1,22 @@
-# Meta Marketing Dashboard
+# 📊 Meta Marketing Dashboard
 
-Dashboard nội bộ để tổng hợp và hiển thị dữ liệu marketing từ Meta (Facebook, Instagram, Ads).
+> Công cụ phân tích marketing nội bộ cho Meta platforms — **Facebook Organic**, **Ads**, và **Instagram** reporting trong một nơi duy nhất.
 
-## Tính năng
+---
 
-- **Facebook Organic**: Theo dõi page metrics, post engagements, reactions, video views
-- **Facebook Ads**: Đồng bộ dữ liệu ads theo account, campaign, adset, ad
-- **Instagram**: Account insights, media ranking, demographics
-- **Export CSV**: Xuất dữ liệu để báo cáo offline
-- **Real-time Updates**: WebSocket để cập nhật dữ liệu thời gian thực
+## ✨ Tính năng
 
-## Bảo mật
+| Module | Khả năng |
+|--------|-------------|
+| 📘 **Facebook Organic** | Page metrics, post engagements, reactions, video views, top posts |
+| 💰 **Ads Reporting** | Account-level insights, campaign performance, KPIs (CTR, CPC, CPM) |
+| 📷 **Instagram** | Account insights, media analytics, demographics, reach trends |
+| 📤 **Export** | CSV exports cho tất cả loại dữ liệu |
+| 🔌 **Real-time** | WebSocket support cho live updates |
+
+---
+
+## 🔒 Bảo mật
 
 ### Authentication (Bắt buộc)
 
@@ -58,178 +64,178 @@ ENABLE_SCHEDULER=true
 ENABLE_STARTUP_FETCH=true
 ```
 
-## Cài đặt
+---
 
-### 1. Clone và install
+## 🚀 Quick Start
+
+### Local Development
 
 ```bash
-git clone https://github.com/phuuthanh-dev/meta-marketing-dashboard.git
-cd meta-marketing-dashboard
+# Install dependencies
 npm install
-```
 
-### 2. Cấu hình environment
-
-```bash
+# Copy environment file and add your tokens
 cp .env.example .env
-```
+# Edit .env with your Facebook tokens
 
-Chỉnh sửa `.env`:
-
-```bash
-# Facebook Portfolio Tokens (Bắt buộc)
-TOKEN_PORTFOLIO_1=your_token_here
-TOKEN_PORTFOLIO_2=your_token_here
-
-# Security (Bắt buộc)
-APP_USERNAME=admin
-APP_PASSWORD=change-this-to-strong-password
-SESSION_SECRET=generate-a-random-secret-here
-
-# Read-only mode (Khuyến nghị: true)
-READ_ONLY=true
-
-# Scheduler (Mặc định: false)
-ENABLE_SCHEDULER=false
-ENABLE_STARTUP_FETCH=false
-```
-
-### 3. Khởi chạy
-
-```bash
-# Fetch dữ liệu lần đầu
+# Run initial data fetch
 npm run fetch
 
 # Start server
 npm start
 ```
 
-Truy cập: `http://localhost:3000`
-
-## API Endpoints
-
-### Authentication
-
-- `POST /api/auth/login` - Đăng nhập
-- `POST /api/auth/logout` - Đăng xuất
-- `GET /api/auth/session` - Kiểm tra session
-
-### Facebook Organic
-
-- `GET /api/pages` - Danh sách pages
-- `GET /api/pages/:id/metrics` - Metrics của page
-- `GET /api/pages/:id/posts` - Danh sách posts
-- `GET /api/pages/:id/top-posts` - Top posts
-- `GET /api/pages/:id/reactions-timeline` - Timeline reactions
-- `GET /api/pages/:id/post-frequency` - Tần suất đăng bài
-- `GET /api/pages/:id/comments-trend` - Trend comment
-- `GET /api/pages/:id/video-views` - Video views breakdown
-
-### Facebook Ads
-
-- `GET /api/ads/accounts` - Danh sách ad accounts
-- `GET /api/ads/accounts/:id` - Chi tiết ad account
-- `GET /api/ads/accounts/:id/insights` - Insights theo ngày
-- `GET /api/ads/accounts/:id/campaigns` - Danh sách campaigns
-- `GET /api/ads/accounts/:id/adsets` - Danh sách adsets
-- `GET /api/ads/accounts/:id/ads` - Danh sách ads
-
-### Instagram
-
-- `GET /api/instagram/accounts` - Danh sách IG accounts
-- `GET /api/instagram/accounts/:id` - Chi tiết IG account
-- `GET /api/instagram/accounts/:id/insights` - Insights theo ngày
-- `GET /api/instagram/accounts/:id/media` - Danh sách media
-- `GET /api/instagram/accounts/:id/media-ranking` - Media ranking
-- `GET /api/instagram/accounts/:id/demographics` - Demographics
-
-### Export
-
-- `GET /api/export/pages.csv` - Export pages
-- `GET /api/export/ads/accounts/:id/insights.csv` - Export ads insights
-- `GET /api/export/instagram/accounts/:id/insights.csv` - Export IG insights
-- `GET /api/export/instagram/accounts/:id/media.csv` - Export IG media
-- `GET /api/export/instagram/accounts/:id/demographics.csv` - Export IG demographics
-
-## Scripts
+### Docker
 
 ```bash
-npm start          # Start server
-npm run fetch      # Fetch dữ liệu từ Meta API
-npm run smoke      # Smoke test
-npm run spike      # Spike test API capabilities
+# Copy environment file
+cp .env.example .env
+# Edit .env with your Facebook tokens
+
+# Start with Docker Compose
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
 ```
 
-## Cấu trúc dự án
+Truy cập dashboard tại **http://localhost:3000**
+
+---
+
+## ⚙️ Configuration
+
+### Environment Variables
+
+| Variable | Mô tả |
+|----------|-------------|
+| `TOKEN_PORTFOLIO_1` | Facebook token for portfolio 1 |
+| `TOKEN_PORTFOLIO_2` | Facebook token for portfolio 2 |
+| `PORT` | Server port (default: 3000) |
+| `HOST` | Server host (default: localhost) |
+| `APP_USERNAME` | Username đăng nhập |
+| `APP_PASSWORD` | Password đăng nhập |
+| `SESSION_SECRET` | Secret key cho session |
+| `READ_ONLY` | Read-only mode (default: true) |
+| `ENABLE_SCHEDULER` | Bật scheduler tự động (default: false) |
+| `ENABLE_STARTUP_FETCH` | Fetch khi khởi động (default: false) |
+
+### 🔑 Facebook Token Requirements
+
+Tokens cần các permissions sau:
+- `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`
+- `ads_read` (for Ads reporting)
+- `instagram_basic`, `instagram_manage_insights` (for Instagram)
+
+---
+
+## 📡 API Endpoints
+
+### 🔐 Authentication
+| Method | Endpoint | Mô tả |
+|--------|----------|-------------|
+| POST | `/api/auth/login` | Đăng nhập |
+| POST | `/api/auth/logout` | Đăng xuất |
+| GET | `/api/auth/session` | Kiểm tra session |
+
+### 📘 Facebook Organic
+| Method | Endpoint | Mô tả |
+|--------|----------|-------------|
+| GET | `/api/pages` | Danh sách pages |
+| GET | `/api/summary` | Summary stats |
+| GET | `/api/pages/:id/metrics` | Page metrics |
+| GET | `/api/pages/:id/top-posts` | Top posts |
+
+### 💰 Ads
+| Method | Endpoint | Mô tả |
+|--------|----------|-------------|
+| GET | `/api/ads/accounts` | Danh sách ad accounts |
+| GET | `/api/ads/accounts/:id/insights` | Account insights |
+| GET | `/api/ads/accounts/:id/campaigns` | Danh sách campaigns |
+
+### 📷 Instagram
+| Method | Endpoint | Mô tả |
+|--------|----------|-------------|
+| GET | `/api/instagram/accounts` | Danh sách IG accounts |
+| GET | `/api/instagram/accounts/:id/insights` | Account insights |
+| GET | `/api/instagram/accounts/:id/media` | Danh sách media |
+
+### 📤 Export
+| Method | Endpoint | Mô tả |
+|--------|----------|-------------|
+| GET | `/api/export/pages.csv` | Export pages |
+| GET | `/api/export/ads/accounts/:id/insights.csv` | Export ads insights |
+| GET | `/api/export/instagram/accounts/:id/media.csv` | Export IG media |
+
+---
+
+## 🛠️ Scripts
+
+```bash
+npm run fetch    # Fetch tất cả metrics từ Meta API
+npm run smoke    # Chạy smoke test
+npm run spike    # Chạy API spike test
+npm run dev      # Start với auto-reload
+```
+
+---
+
+## 📁 Project Structure
 
 ```
 meta-marketing-dashboard/
 ├── src/
-│   ├── index.js           # Entry point
-│   ├── server.js          # Express server + routes
-│   ├── database.js        # SQLite database layer
-│   ├── config.js          # Configuration
-│   ├── scheduler.js       # Cron scheduler
-│   ├── facebook/          # Facebook Organic API
-│   │   ├── api.js
-│   │   └── metrics.js
-│   ├── meta-ads/          # Ads API
-│   │   ├── api.js
-│   │   └── fetcher.js
-│   └── instagram/         # Instagram API
-│       ├── api.js
-│       └── fetcher.js
-├── public/                # Frontend
-│   ├── index.html
-│   ├── login.html
-│   ├── css/
-│   └── js/
-├── data/                  # SQLite database
-├── test/                  # Test scripts
-├── .env.example           # Environment template
-├── Dockerfile
+│   ├── index.js          # Entry point
+│   ├── server.js         # Express server + routes
+│   ├── database.js       # SQLite database layer
+│   ├── config.js         # Configuration
+│   ├── scheduler.js      # Cron scheduler
+│   ├── facebook/         # 📘 Facebook Organic API
+│   ├── meta-ads/         # 💰 Ads API
+│   └── instagram/        # 📷 Instagram API
+├── public/               # Frontend (HTML/CSS/JS)
+├── test/                 # Test scripts
+├── data/                 # SQLite database (gitignored)
 └── docker-compose.yml
 ```
 
-## Deployment
+---
 
-### Docker
+## 🚢 Deployment
+
+### Railway / Render / Fly.io
+
+1. Push to GitHub
+2. Connect repo to platform
+3. Set environment variables
+4. Deploy
+
+### VPS / VM
 
 ```bash
+git clone https://github.com/phuuthanh-dev/meta-marketing-dashboard.git
+cd meta-marketing-dashboard
+cp .env.example .env
+# Edit .env
 docker-compose up -d
 ```
 
-### Manual
+---
 
-```bash
-npm install
-npm run fetch
-npm start
-```
+## ⚠️ Known Limitations
 
-## Lưu ý
+- ❌ Facebook Page demographics metrics đã bị Meta deprecate
+- ⚠️ Ads summary có thể mix nhiều currencies nếu có nhiều accounts
+- ℹ️ Instagram demographics yêu cầu accounts có đủ followers
 
-### Facebook Organic Metrics
+---
 
-Một số metric Facebook Page Insights đã bị Meta deprecate:
-- `page_impressions`, `page_impressions_organic`, `page_impressions_paid`
-- `page_engaged_users`, `page_consumptions`
-- `page_fans`, `page_fans_locale`, `page_fans_city`, `page_fans_country`
-
-Dashboard chỉ hiển thị các metric còn hoạt động.
-
-### Ads Reporting
-
-- Dữ liệu ads được đồng bộ theo account riêng biệt
-- Summary có thể mix nhiều currency nếu có nhiều account
-- Khuyến nghị xem theo từng account để tránh nhầm lẫn
-
-### Instagram
-
-- Demographics chỉ available cho một số account
-- Media insights có thể không có cho một số loại media
-- Discovery tự động tìm IG account linked với Pages
-
-## License
+## 📄 License
 
 ISC
+
+---
+
+<div align="center">
+  <sub>Built with ❤️ for internal marketing analytics</sub>
+</div>
