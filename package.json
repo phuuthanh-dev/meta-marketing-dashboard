@@ -1,0 +1,38 @@
+{
+  "name": "fb-metrics",
+  "version": "1.0.0",
+  "description": "Facebook Organic, Ads & Instagram Reporting Dashboard - Internal marketing analytics tool",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "fetch": "node src/fetch-now.js",
+    "smoke": "node test/test-smoke.js",
+    "spike": "node test/spike-test.js"
+  },
+  "keywords": [
+    "facebook",
+    "instagram",
+    "meta",
+    "analytics",
+    "dashboard",
+    "marketing",
+    "reporting"
+  ],
+  "author": "Huuthanh",
+  "license": "ISC",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "axios": "^1.18.1",
+    "better-sqlite3": "^12.11.1",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "node-cron": "^4.5.0",
+    "ws": "^8.21.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}

@@ -1,0 +1,12 @@
+node_modules
+data
+.env
+.env.*
+*.log
+.DS_Store
+.git
+.gitignore
+README.md
+AUDIT_REPORT.md
+MARKETING_GAP_ANALYSIS.md
+spike-test-results.json
