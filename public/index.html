@@ -21,8 +21,8 @@
       </div>
       <div class="header-info">
         <span class="ws-status" id="appModeBadge">Mode: -</span>
-        <span class="ws-status" id="wsStatus">&#x1F534; Offline</span>
-        <span class="last-updated" id="lastUpdated">&#x0110;ang t&#x1EA3;i...</span>
+        <span class="ws-status" id="wsStatus"> Offline</span>
+        <span class="last-updated" id="lastUpdated">Đang tải...</span>
         <button id="logoutBtn" class="btn btn-secondary">Logout</button>
       </div>
     </div>
@@ -33,28 +33,28 @@
     <section class="summary-section">
       <div class="summary-grid">
         <div class="summary-card">
-          <div class="summary-icon">&#x1F4C4;</div>
+          <div class="summary-icon"></div>
           <div class="summary-content">
             <span class="summary-label">Facebook Pages</span>
             <span class="summary-value" id="totalPages">-</span>
           </div>
         </div>
         <div class="summary-card">
-          <div class="summary-icon">&#x1F465;</div>
+          <div class="summary-icon"></div>
           <div class="summary-content">
             <span class="summary-label">Page Fans</span>
             <span class="summary-value" id="totalFans">-</span>
           </div>
         </div>
         <div class="summary-card">
-          <div class="summary-icon">&#x2764;&#xFE0F;</div>
+          <div class="summary-icon">❤️</div>
           <div class="summary-content">
             <span class="summary-label">Page Followers</span>
             <span class="summary-value" id="totalFollowers">-</span>
           </div>
         </div>
         <div class="summary-card">
-          <div class="summary-icon">&#x1F4CA;</div>
+          <div class="summary-icon"></div>
           <div class="summary-content">
             <span class="summary-label">Portfolios</span>
             <span class="summary-value" id="totalPortfolios">-</span>
@@ -67,24 +67,24 @@
     <section class="tabs-section">
       <div class="card">
         <nav class="tabs">
-          <button class="tab active" data-tab="overview">&#x1F4CA; FB Organic</button>
-          <button class="tab" data-tab="posts">&#x1F4DD; FB Posts</button>
-          <button class="tab" data-tab="comments">&#x1F4AC; FB Comments</button>
-          <button class="tab" data-tab="audience">&#x1F465; FB Audience</button>
-          <button class="tab" data-tab="messages">&#x1F4E8; Messages</button>
-          <button class="tab" data-tab="media">&#x1F4F8; Media</button>
-          <button class="tab" data-tab="page-management">&#x2699;&#xFE0F; FB Operations</button>
-          <button class="tab" data-tab="analytics">&#x1F4C8; Facebook</button>
-          <button class="tab" data-tab="ads">&#x1F4B0; Ads</button>
-          <button class="tab" data-tab="instagram">&#x1F4F7; Instagram</button>
-          <button class="tab" data-tab="automation">&#x1F916; Automation</button>
+          <button class="tab active" data-tab="overview"> FB Organic</button>
+          <button class="tab" data-tab="posts"> FB Posts</button>
+          <button class="tab" data-tab="comments"> FB Comments</button>
+          <button class="tab" data-tab="audience"> FB Audience</button>
+          <button class="tab" data-tab="messages"> Messages</button>
+          <button class="tab" data-tab="media"> Media</button>
+          <button class="tab" data-tab="page-management">⚙️ FB Operations</button>
+          <button class="tab" data-tab="analytics"> Facebook</button>
+          <button class="tab" data-tab="ads"> Ads</button>
+          <button class="tab" data-tab="instagram"> Instagram</button>
+          <button class="tab" data-tab="automation">烙 Automation</button>
         </nav>
 
         <!-- Overview Tab -->
         <div class="tab-content active" id="overview-tab">
           <div class="section-header">
             <h2>Facebook Organic Overview</h2>
-            <p class="section-description">T&#x1ED5;ng quan hi&#x1EC7;u su&#x1EA5;t organic c&#x1EE7;a Facebook Page</p>
+            <p class="section-description">Tổng quan hiệu suất organic của Facebook Page</p>
           </div>
           
           <div class="charts-grid">
@@ -123,45 +123,45 @@
         <div class="tab-content" id="posts-tab">
           <div class="section-header">
             <h2>Facebook Post Operations</h2>
-            <p class="section-description">T&#x1EA1;o, l&#x00EA;n l&#x1ECB;ch v&#x00E0; qu&#x1EA3;n l&#x00FD; b&#x00E0;i &#x0111;&#x0103;ng</p>
+            <p class="section-description">Tạo, lên lịch và quản lý bài đăng</p>
           </div>
           <div class="action-card">
-            <h3>&#x1F4DD; T&#x1EA1;o b&#x00E0;i &#x0111;&#x0103;ng m&#x1EDB;i</h3>
+            <h3> Tạo bài đăng mới</h3>
             <form id="createPostForm">
               <div class="form-group">
-                <label>Ch&#x1ECD;n Page:</label>
-                <select id="postPageSelect" required><option value="">-- Ch&#x1ECD;n page --</option></select>
+                <label>Chọn Page:</label>
+                <select id="postPageSelect" required><option value="">-- Chọn page --</option></select>
               </div>
               <div class="form-group">
-                <label>N&#x1ED9;i dung:</label>
-                <textarea id="postMessage" rows="4" placeholder="Nh&#x1EAD;p n&#x1ED9;i dung b&#x00E0;i &#x0111;&#x0103;ng..." required></textarea>
+                <label>Nội dung:</label>
+                <textarea id="postMessage" rows="4" placeholder="Nhập nội dung bài đăng..." required></textarea>
               </div>
               <div class="form-group">
-                <label><input type="checkbox" id="schedulePost"> L&#x00EA;n l&#x1ECB;ch &#x0111;&#x0103;ng</label>
+                <label><input type="checkbox" id="schedulePost"> Lên lịch đăng</label>
               </div>
               <div class="form-group" id="scheduleTimeGroup" style="display: none;">
-                <label>Th&#x1EDD;i gian:</label>
+                <label>Thời gian:</label>
                 <input type="datetime-local" id="scheduleTime">
               </div>
-              <button type="submit" class="btn btn-primary">&#x0110;&#x0103;ng b&#x00E0;i</button>
+              <button type="submit" class="btn btn-primary">Đăng bài</button>
             </form>
             <div id="createPostResult" class="result-box"></div>
           </div>
           <div class="action-card">
-            <h3>&#x23F0; Scheduled Posts</h3>
+            <h3>⏰ Scheduled Posts</h3>
             <div class="form-group">
-              <label>Ch&#x1ECD;n Page:</label>
-              <select id="scheduledPageSelect"><option value="">-- Ch&#x1ECD;n page --</option></select>
-              <button onclick="loadScheduledPosts()" class="btn btn-secondary">T&#x1EA3;i danh s&#x00E1;ch</button>
+              <label>Chọn Page:</label>
+              <select id="scheduledPageSelect"><option value="">-- Chọn page --</option></select>
+              <button onclick="loadScheduledPosts()" class="btn btn-secondary">Tải danh sách</button>
             </div>
-            <div id="scheduledPostsList" class="list-box">Ch&#x1ECD;n page &#x0111;&#x1EC3; xem scheduled posts</div>
+            <div id="scheduledPostsList" class="list-box">Chọn page để xem scheduled posts</div>
           </div>
           <div class="action-card">
-            <h3>&#x1F5D1;&#xFE0F; X&#x00F3;a b&#x00E0;i &#x0111;&#x0103;ng</h3>
+            <h3>️ Xóa bài đăng</h3>
             <div class="form-group">
               <label>Post ID:</label>
               <input type="text" id="deletePostId" placeholder="VD: 123456_789012">
-              <button onclick="deletePost()" class="btn btn-danger">X&#x00F3;a</button>
+              <button onclick="deletePost()" class="btn btn-danger">Xóa</button>
             </div>
             <div id="deletePostResult" class="result-box"></div>
           </div>
@@ -171,37 +171,37 @@
         <div class="tab-content" id="comments-tab">
           <div class="section-header">
             <h2>Facebook Comment Operations</h2>
-            <p class="section-description">Qu&#x1EA3;n l&#x00FD; b&#x00EC;nh lu&#x1EAD;n t&#x1EEB; c&#x00E1;c b&#x00E0;i &#x0111;&#x0103;ng</p>
+            <p class="section-description">Quản lý bình luận từ các bài đăng</p>
           </div>
           <div class="action-card">
-            <h3>&#x1F4AC; Xem b&#x00EC;nh lu&#x1EAD;n</h3>
+            <h3> Xem bình luận</h3>
             <div class="form-group">
               <label>Post ID:</label>
               <input type="text" id="commentsPostId" placeholder="VD: 123456_789012">
-              <button onclick="loadComments()" class="btn btn-secondary">T&#x1EA3;i comments</button>
+              <button onclick="loadComments()" class="btn btn-secondary">Tải comments</button>
             </div>
-            <div id="commentsList" class="list-box">Nh&#x1EAD;p Post ID &#x0111;&#x1EC3; t&#x1EA3;i comments</div>
+            <div id="commentsList" class="list-box">Nhập Post ID để tải comments</div>
           </div>
           <div class="action-card">
-            <h3>&#x21A9;&#xFE0F; Reply Comment</h3>
+            <h3>↩️ Reply Comment</h3>
             <div class="form-group">
               <label>Comment ID:</label>
               <input type="text" id="replyCommentId" placeholder="Comment ID">
             </div>
             <div class="form-group">
-              <label>N&#x1ED9;i dung reply:</label>
-              <textarea id="replyMessage" rows="3" placeholder="Nh&#x1EAD;p n&#x1ED9;i dung reply..."></textarea>
+              <label>Nội dung reply:</label>
+              <textarea id="replyMessage" rows="3" placeholder="Nhập nội dung reply..."></textarea>
             </div>
             <button onclick="replyToComment()" class="btn btn-primary">Reply</button>
             <div id="replyResult" class="result-box"></div>
           </div>
           <div class="action-card">
-            <h3>&#x1F6AB; &#x1EA8;n/X&#x00F3;a Comment</h3>
+            <h3> Ẩn/Xóa Comment</h3>
             <div class="form-group">
               <label>Comment ID:</label>
               <input type="text" id="moderateCommentId" placeholder="Comment ID">
-              <button onclick="hideComment()" class="btn btn-warning">&#x1EA8;n</button>
-              <button onclick="deleteComment()" class="btn btn-danger">X&#x00F3;a</button>
+              <button onclick="hideComment()" class="btn btn-warning">Ẩn</button>
+              <button onclick="deleteComment()" class="btn btn-danger">Xóa</button>
             </div>
             <div id="moderateResult" class="result-box"></div>
           </div>
@@ -214,22 +214,22 @@
             <p class="section-description">Khu vuc nay duoc khoa an toan vi Facebook Page API hien tai khong con tra on dinh demographics va reach metrics ma dashboard cu tung dung</p>
           </div>
           <div class="action-card">
-            <h3>&#x1F4CA; Demographics <span class="chart-badge chart-badge-unsupported">Unsupported</span></h3>
+            <h3> Demographics <span class="chart-badge chart-badge-unsupported">Unsupported</span></h3>
             <div class="form-group">
-              <label>Ch&#x1ECD;n Page:</label>
-              <select id="audiencePageSelect"><option value="">-- Ch&#x1ECD;n page --</option></select>
-              <button onclick="loadAudience()" class="btn btn-secondary">T&#x1EA3;i d&#x1EEF; li&#x1EC7;u</button>
+              <label>Chọn Page:</label>
+              <select id="audiencePageSelect"><option value="">-- Chọn page --</option></select>
+              <button onclick="loadAudience()" class="btn btn-secondary">Tải dữ liệu</button>
             </div>
-            <div id="audienceData" class="list-box">Ch&#x1ECD;n page &#x0111;&#x1EC3; xem demographics</div>
+            <div id="audienceData" class="list-box">Chọn page để xem demographics</div>
           </div>
           <div class="action-card">
-            <h3>&#x1F4C8; Reach &amp; Engagement <span class="chart-badge chart-badge-unsupported">Unsupported</span></h3>
+            <h3> Reach &amp; Engagement <span class="chart-badge chart-badge-unsupported">Unsupported</span></h3>
             <div class="form-group">
-              <label>Ch&#x1ECD;n Page:</label>
-              <select id="reachPageSelect"><option value="">-- Ch&#x1ECD;n page --</option></select>
-              <label>S&#x1ED1; ng&#x00E0;y:</label>
+              <label>Chọn Page:</label>
+              <select id="reachPageSelect"><option value="">-- Chọn page --</option></select>
+              <label>Số ngày:</label>
               <input type="number" id="reachDays" value="30" min="1" max="90">
-              <button onclick="loadReachData()" class="btn btn-secondary">T&#x1EA3;i d&#x1EEF; li&#x1EC7;u</button>
+              <button onclick="loadReachData()" class="btn btn-secondary">Tải dữ liệu</button>
             </div>
             <div class="charts-grid">
               <div class="chart-card">
@@ -248,42 +248,42 @@
         <div class="tab-content" id="messages-tab">
           <div class="section-header">
             <h2>Inbox &amp; Messages</h2>
-            <p class="section-description">Qu&#x1EA3;n l&#x00FD; tin nh&#x1EAF;n v&#x00E0; th&#x00F4;ng b&#x00E1;o</p>
+            <p class="section-description">Quản lý tin nhắn và thông báo</p>
           </div>
           <div class="action-card">
-            <h3>&#x1F4E8; Conversations</h3>
+            <h3> Conversations</h3>
             <div class="form-group">
-              <label>Ch&#x1ECD;n Page:</label>
-              <select id="inboxPageSelect"><option value="">-- Ch&#x1ECD;n page --</option></select>
-              <button onclick="loadConversations()" class="btn btn-secondary">T&#x1EA3;i conversations</button>
+              <label>Chọn Page:</label>
+              <select id="inboxPageSelect"><option value="">-- Chọn page --</option></select>
+              <button onclick="loadConversations()" class="btn btn-secondary">Tải conversations</button>
             </div>
-            <div id="conversationsList" class="list-box">Ch&#x1ECD;n page &#x0111;&#x1EC3; xem conversations</div>
+            <div id="conversationsList" class="list-box">Chọn page để xem conversations</div>
           </div>
           <div class="action-card">
-            <h3>&#x1F4AC; Send Message</h3>
+            <h3> Send Message</h3>
             <div class="form-group">
               <label>Page:</label>
-              <select id="sendMsgPageSelect"><option value="">-- Ch&#x1ECD;n page --</option></select>
+              <select id="sendMsgPageSelect"><option value="">-- Chọn page --</option></select>
             </div>
             <div class="form-group">
               <label>Recipient ID:</label>
               <input type="text" id="sendMsgRecipient" placeholder="User ID">
             </div>
             <div class="form-group">
-              <label>N&#x1ED9;i dung:</label>
-              <textarea id="sendMsgContent" rows="3" placeholder="Nh&#x1EAD;p tin nh&#x1EAF;n..."></textarea>
+              <label>Nội dung:</label>
+              <textarea id="sendMsgContent" rows="3" placeholder="Nhập tin nhắn..."></textarea>
             </div>
-            <button onclick="sendMessage()" class="btn btn-primary">G&#x1EED;i</button>
+            <button onclick="sendMessage()" class="btn btn-primary">Gửi</button>
             <div id="sendMessageResult" class="result-box"></div>
           </div>
           <div class="action-card">
-            <h3>&#x1F514; Notifications</h3>
+            <h3> Notifications</h3>
             <div class="form-group">
-              <label>Ch&#x1ECD;n Page:</label>
-              <select id="notificationsPageSelect"><option value="">-- Ch&#x1ECD;n page --</option></select>
-              <button onclick="loadNotifications()" class="btn btn-secondary">T&#x1EA3;i notifications</button>
+              <label>Chọn Page:</label>
+              <select id="notificationsPageSelect"><option value="">-- Chọn page --</option></select>
+              <button onclick="loadNotifications()" class="btn btn-secondary">Tải notifications</button>
             </div>
-            <div id="notificationsList" class="list-box">Ch&#x1ECD;n page &#x0111;&#x1EC3; xem notifications</div>
+            <div id="notificationsList" class="list-box">Chọn page để xem notifications</div>
           </div>
         </div>
 
@@ -291,13 +291,13 @@
         <div class="tab-content" id="media-tab">
           <div class="section-header">
             <h2>Media Management</h2>
-            <p class="section-description">Qu&#x1EA3;n l&#x00FD; &#x1EA3;nh, video v&#x00E0; albums</p>
+            <p class="section-description">Quản lý ảnh, video và albums</p>
           </div>
           <div class="action-card">
-            <h3>&#x1F4F8; Upload Photo</h3>
+            <h3> Upload Photo</h3>
             <div class="form-group">
-              <label>Ch&#x1ECD;n Page:</label>
-              <select id="uploadPhotoPageSelect"><option value="">-- Ch&#x1ECD;n page --</option></select>
+              <label>Chọn Page:</label>
+              <select id="uploadPhotoPageSelect"><option value="">-- Chọn page --</option></select>
             </div>
             <div class="form-group">
               <label>Photo URL:</label>
@@ -305,16 +305,16 @@
             </div>
             <div class="form-group">
               <label>Caption:</label>
-              <textarea id="uploadPhotoCaption" rows="2" placeholder="M&#x00F4; t&#x1EA3; &#x1EA3;nh..."></textarea>
+              <textarea id="uploadPhotoCaption" rows="2" placeholder="Mô tả ảnh..."></textarea>
             </div>
             <button onclick="uploadPhoto()" class="btn btn-primary">Upload</button>
             <div id="uploadPhotoResult" class="result-box"></div>
           </div>
           <div class="action-card">
-            <h3>&#x1F3A5; Upload Video</h3>
+            <h3> Upload Video</h3>
             <div class="form-group">
-              <label>Ch&#x1ECD;n Page:</label>
-              <select id="uploadVideoPageSelect"><option value="">-- Ch&#x1ECD;n page --</option></select>
+              <label>Chọn Page:</label>
+              <select id="uploadVideoPageSelect"><option value="">-- Chọn page --</option></select>
             </div>
             <div class="form-group">
               <label>Video URL:</label>
@@ -322,30 +322,30 @@
             </div>
             <div class="form-group">
               <label>Title:</label>
-              <input type="text" id="uploadVideoTitle" placeholder="Ti&#x00EA;u &#x0111;&#x1EC1; video">
+              <input type="text" id="uploadVideoTitle" placeholder="Tiêu đề video">
             </div>
             <div class="form-group">
               <label>Description:</label>
-              <textarea id="uploadVideoDesc" rows="2" placeholder="M&#x00F4; t&#x1EA3; video..."></textarea>
+              <textarea id="uploadVideoDesc" rows="2" placeholder="Mô tả video..."></textarea>
             </div>
             <button onclick="uploadVideo()" class="btn btn-primary">Upload</button>
             <div id="uploadVideoResult" class="result-box"></div>
           </div>
           <div class="action-card">
-            <h3>&#x1F4C1; Albums</h3>
+            <h3> Albums</h3>
             <div class="form-group">
-              <label>Ch&#x1ECD;n Page:</label>
-              <select id="albumsPageSelect"><option value="">-- Ch&#x1ECD;n page --</option></select>
-              <button onclick="loadAlbums()" class="btn btn-secondary">T&#x1EA3;i albums</button>
+              <label>Chọn Page:</label>
+              <select id="albumsPageSelect"><option value="">-- Chọn page --</option></select>
+              <button onclick="loadAlbums()" class="btn btn-secondary">Tải albums</button>
             </div>
-            <div id="albumsList" class="list-box">Ch&#x1ECD;n page &#x0111;&#x1EC3; xem albums</div>
+            <div id="albumsList" class="list-box">Chọn page để xem albums</div>
           </div>
           <div class="action-card">
-            <h3>&#x1F5D1;&#xFE0F; Delete Media</h3>
+            <h3>️ Delete Media</h3>
             <div class="form-group">
               <label>Media ID:</label>
               <input type="text" id="deleteMediaId" placeholder="Photo/Video ID">
-              <button onclick="deleteMedia()" class="btn btn-danger">X&#x00F3;a</button>
+              <button onclick="deleteMedia()" class="btn btn-danger">Xóa</button>
             </div>
             <div id="deleteMediaResult" class="result-box"></div>
           </div>
@@ -355,34 +355,34 @@
         <div class="tab-content" id="page-management-tab">
           <div class="section-header">
             <h2>Facebook Page Operations</h2>
-            <p class="section-description">Qu&#x1EA3;n l&#x00FD; th&#x00F4;ng tin v&#x00E0; c&#x00E0;i &#x0111;&#x1EB7;t cho Facebook Page</p>
+            <p class="section-description">Quản lý thông tin và cài đặt cho Facebook Page</p>
           </div>
           <div class="action-card">
-            <h3>&#x1F4CB; Page Details</h3>
+            <h3> Page Details</h3>
             <div class="form-group">
-              <label>Ch&#x1ECD;n Page:</label>
-              <select id="pageDetailsSelect"><option value="">-- Ch&#x1ECD;n page --</option></select>
-              <button onclick="loadPageDetails()" class="btn btn-secondary">T&#x1EA3;i th&#x00F4;ng tin</button>
+              <label>Chọn Page:</label>
+              <select id="pageDetailsSelect"><option value="">-- Chọn page --</option></select>
+              <button onclick="loadPageDetails()" class="btn btn-secondary">Tải thông tin</button>
             </div>
-            <div id="pageDetailsContainer" class="result-box">Ch&#x1ECD;n page &#x0111;&#x1EC3; xem th&#x00F4;ng tin chi ti&#x1EBF;t</div>
+            <div id="pageDetailsContainer" class="result-box">Chọn page để xem thông tin chi tiết</div>
           </div>
           <div class="action-card">
-            <h3>&#x1F465; Page Roles</h3>
+            <h3> Page Roles</h3>
             <div class="form-group">
-              <label>Ch&#x1ECD;n Page:</label>
-              <select id="pageRolesSelect"><option value="">-- Ch&#x1ECD;n page --</option></select>
-              <button onclick="loadPageRoles()" class="btn btn-secondary">T&#x1EA3;i roles</button>
+              <label>Chọn Page:</label>
+              <select id="pageRolesSelect"><option value="">-- Chọn page --</option></select>
+              <button onclick="loadPageRoles()" class="btn btn-secondary">Tải roles</button>
             </div>
-            <div id="pageRolesContainer" class="list-box">Ch&#x1ECD;n page &#x0111;&#x1EC3; xem danh s&#x00E1;ch roles</div>
+            <div id="pageRolesContainer" class="list-box">Chọn page để xem danh sách roles</div>
           </div>
           <div class="action-card">
-            <h3>&#x2699;&#xFE0F; Page Settings</h3>
+            <h3>⚙️ Page Settings</h3>
             <div class="form-group">
-              <label>Ch&#x1ECD;n Page:</label>
-              <select id="pageSettingsSelect"><option value="">-- Ch&#x1ECD;n page --</option></select>
-              <button onclick="loadPageSettings()" class="btn btn-secondary">T&#x1EA3;i settings</button>
+              <label>Chọn Page:</label>
+              <select id="pageSettingsSelect"><option value="">-- Chọn page --</option></select>
+              <button onclick="loadPageSettings()" class="btn btn-secondary">Tải settings</button>
             </div>
-            <div id="pageSettingsContainer" class="list-box">Ch&#x1ECD;n page &#x0111;&#x1EC3; xem c&#x00E0;i &#x0111;&#x1EB7;t</div>
+            <div id="pageSettingsContainer" class="list-box">Chọn page để xem cài đặt</div>
           </div>
         </div>
 
@@ -390,34 +390,34 @@
         <div class="tab-content" id="analytics-tab">
           <div class="section-header">
             <h2>Facebook Organic Analytics</h2>
-            <p class="section-description">Ph&#x00E2;n t&#x00ED;ch n&#x00E2;ng cao cho hi&#x1EC7;u su&#x1EA5;t organic c&#x1EE7;a Facebook Page</p>
+            <p class="section-description">Phân tích nâng cao cho hiệu suất organic của Facebook Page</p>
           </div>
 
           <div class="action-card">
-            <h3>&#x1F4CA; Ch&#x1ECD;n Page &#x0111;&#x1EC3; ph&#x00E2;n t&#x00ED;ch</h3>
+            <h3> Chọn Page để phân tích</h3>
             <div class="form-group">
-              <label>Ch&#x1ECD;n Page:</label>
-              <select id="pageSelect"><option value="">-- Ch&#x1ECD;n page --</option></select>
+              <label>Chọn Page:</label>
+              <select id="pageSelect"><option value="">-- Chọn page --</option></select>
             </div>
             <div class="form-group">
-              <label>Kho&#x1EA3;ng ng&#x00E0;y:</label>
+              <label>Khoảng ngày:</label>
               <select id="analyticsDaysSelect">
-                <option value="7">7 ng&#x00E0;y</option>
-                <option value="30" selected>30 ng&#x00E0;y</option>
-                <option value="60">60 ng&#x00E0;y</option>
-                <option value="90">90 ng&#x00E0;y</option>
+                <option value="7">7 ngày</option>
+                <option value="30" selected>30 ngày</option>
+                <option value="60">60 ngày</option>
+                <option value="90">90 ngày</option>
               </select>
             </div>
             <div class="form-group">
-              <label>So s&#x00E1;nh theo:</label>
+              <label>So sánh theo:</label>
               <select id="analyticsPeriodSelect">
-                <option value="weekly" selected>Tu&#x1EA7;n</option>
-                <option value="monthly">Th&#x00E1;ng</option>
+                <option value="weekly" selected>Tuần</option>
+                <option value="monthly">Tháng</option>
               </select>
             </div>
             <div class="form-group">
-              <button id="exportPagesCsvBtn" class="btn btn-secondary">Xu&#x1EA5;t Pages CSV</button>
-              <button id="exportTopPostsCsvBtn" class="btn btn-secondary">Xu&#x1EA5;t Top Posts CSV</button>
+              <button id="exportPagesCsvBtn" class="btn btn-secondary">Xuất Pages CSV</button>
+              <button id="exportTopPostsCsvBtn" class="btn btn-secondary">Xuất Top Posts CSV</button>
             </div>
           </div>
 
@@ -434,95 +434,95 @@
           </div>
 
           <div class="action-card chart-card-hidden">
-            <h3>&#x1F4C8; Fan Growth Trend <span class="chart-badge chart-badge-unsupported">Hide</span></h3>
-            <p class="section-description">Bi&#x1EC3;u &#x0111;&#x1ED3; t&#x0103;ng tr&#x01B0;&#x1EDF;ng fans v&#x00E0; followers theo th&#x1EDD;i gian</p>
+            <h3> Fan Growth Trend <span class="chart-badge chart-badge-unsupported">Hide</span></h3>
+            <p class="section-description">Biểu đồ tăng trưởng fans và followers theo thời gian</p>
             <div class="chart-wrapper" style="height: 300px;"><canvas id="fanGrowthChart"></canvas></div>
           </div>
 
           <div class="action-card">
-            <h3>&#x1F4AC; Reactions Breakdown Timeline <span class="chart-badge chart-badge-local">Local DB</span></h3>
-            <p class="section-description">Ph&#x00E2;n t&#x00ED;ch c&#x00E1;c lo&#x1EA1;i reaction theo th&#x1EDD;i gian</p>
+            <h3> Reactions Breakdown Timeline <span class="chart-badge chart-badge-local">Local DB</span></h3>
+            <p class="section-description">Phân tích các loại reaction theo thời gian</p>
             <div class="chart-wrapper" style="height: 300px;"><canvas id="advancedReactionsTimelineChart"></canvas></div>
           </div>
 
           <div class="action-card">
-            <h3>&#x1F39E;&#xFE0F; Video Views Breakdown <span class="chart-badge chart-badge-live">Live Meta</span></h3>
-            <p class="section-description">T&#x1ED5;ng video views, paid vs organic, autoplay vs click-to-play</p>
+            <h3>️ Video Views Breakdown <span class="chart-badge chart-badge-live">Live Meta</span></h3>
+            <p class="section-description">Tổng video views, paid vs organic, autoplay vs click-to-play</p>
             <div class="chart-wrapper" style="height: 320px;"><canvas id="videoViewsBreakdownChart"></canvas></div>
           </div>
 
           <div class="action-card">
-            <h3>&#x1F3AF; Total Actions Trend <span class="chart-badge chart-badge-local">Local DB</span></h3>
-            <p class="section-description">Theo d&#x00F5;i total actions theo ng&#x00E0;y so v&#x1EDB;i engagement v&#x00E0; reactions</p>
+            <h3> Total Actions Trend <span class="chart-badge chart-badge-local">Local DB</span></h3>
+            <p class="section-description">Theo dõi total actions theo ngày so với engagement và reactions</p>
             <div class="chart-wrapper" style="height: 320px;"><canvas id="totalActionsTrendChart"></canvas></div>
           </div>
 
           <div class="action-card">
-            <h3>&#x1F550; Best Posting Times <span class="chart-badge chart-badge-local">Local DB</span></h3>
-            <p class="section-description">Th&#x1EDD;i &#x0111;i&#x1EC3;m &#x0111;&#x0103;ng b&#x00E0;i c&#x00F3; engagement cao nh&#x1EA5;t</p>
+            <h3> Best Posting Times <span class="chart-badge chart-badge-local">Local DB</span></h3>
+            <p class="section-description">Thời điểm đăng bài có engagement cao nhất</p>
             <div class="chart-wrapper" style="height: 350px;"><canvas id="bestPostingTimesChart"></canvas></div>
           </div>
 
           <div class="action-card">
-            <h3>&#x1F525; Top Performing Posts <span class="chart-badge chart-badge-local">Local DB</span></h3>
-            <p class="section-description">10 b&#x00E0;i &#x0111;&#x0103;ng c&#x00F3; engagement cao nh&#x1EA5;t</p>
+            <h3> Top Performing Posts <span class="chart-badge chart-badge-local">Local DB</span></h3>
+            <p class="section-description">10 bài đăng có engagement cao nhất</p>
             <div class="chart-wrapper" style="height: 400px;"><canvas id="topPostsChart"></canvas></div>
           </div>
 
           <div class="action-card chart-card-hidden">
-            <h3>&#x1F465; Demographics <span class="chart-badge chart-badge-unsupported">Hide</span></h3>
-            <p class="section-description">Facebook Page API hi&#x1EC7;n kh&#x00F4;ng tr&#x1EA3; age/gender breakdown</p>
+            <h3> Demographics <span class="chart-badge chart-badge-unsupported">Hide</span></h3>
+            <p class="section-description">Facebook Page API hiện không trả age/gender breakdown</p>
             <div class="chart-wrapper" style="height: 300px;"><canvas id="demographicsChart"></canvas></div>
             <div class="info-box" style="margin-top: 15px; padding: 12px; background: #f0f2f5; border-radius: 6px;">
-              <strong>&#x2139;&#xFE0F; L&#x01B0;u &#x00FD;:</strong> Facebook Graph API kh&#x00F4;ng cung c&#x1EA5;p d&#x1EEF; li&#x1EC7;u nh&#x00E2;n kh&#x1EA9;u h&#x1ECD;c (age/gender) tr&#x1EF1;c ti&#x1EBF;p qua Page Insights. C&#x1EA7;n s&#x1EED; d&#x1EE5;ng Meta Business Suite ho&#x1EB7;c Audience Insights trong Facebook Creator Studio &#x0111;&#x1EC3; xem d&#x1EEF; li&#x1EC7;u chi ti&#x1EBF;t.
+              <strong>ℹ️ Lưu ý:</strong> Facebook Graph API không cung cấp dữ liệu nhân khẩu học (age/gender) trực tiếp qua Page Insights. Cần sử dụng Meta Business Suite hoặc Audience Insights trong Facebook Creator Studio để xem dữ liệu chi tiết.
             </div>
           </div>
 
           <div class="action-card chart-card-hidden">
-            <h3>&#x1F4CA; Engagement Rate Trend <span class="chart-badge chart-badge-unsupported">Hide</span></h3>
-            <p class="section-description">T&#x1EF7; l&#x1EC7; engagement/fans theo th&#x1EDD;i gian</p>
+            <h3> Engagement Rate Trend <span class="chart-badge chart-badge-unsupported">Hide</span></h3>
+            <p class="section-description">Tỷ lệ engagement/fans theo thời gian</p>
             <div class="chart-wrapper" style="height: 300px;"><canvas id="engagementRateTrendChart"></canvas></div>
           </div>
 
           <div class="action-card">
-            <h3>&#x1F4C5; Post Frequency Analysis <span class="chart-badge chart-badge-local">Local DB</span></h3>
-            <p class="section-description">T&#x1EA7;n su&#x1EA5;t &#x0111;&#x0103;ng b&#x00E0;i theo ng&#x00E0;y</p>
+            <h3> Post Frequency Analysis <span class="chart-badge chart-badge-local">Local DB</span></h3>
+            <p class="section-description">Tần suất đăng bài theo ngày</p>
             <div class="chart-wrapper" style="height: 300px;"><canvas id="postFrequencyChart"></canvas></div>
           </div>
 
           <div class="action-card">
-            <h3>&#x1F49D; Reaction Ratio <span class="chart-badge chart-badge-local">Local DB</span></h3>
-            <p class="section-description">T&#x1EF7; l&#x1EC7; c&#x00E1;c lo&#x1EA1;i reaction (like/love/wow/haha)</p>
+            <h3> Reaction Ratio <span class="chart-badge chart-badge-local">Local DB</span></h3>
+            <p class="section-description">Tỷ lệ các loại reaction (like/love/wow/haha)</p>
             <div class="chart-wrapper" style="height: 300px;"><canvas id="reactionRatioChart"></canvas></div>
           </div>
 
           <div class="action-card">
-            <h3>&#x1F4AC; Comments vs Likes <span class="chart-badge chart-badge-local">Local DB</span></h3>
-            <p class="section-description">So s&#x00E1;nh s&#x1ED1; comments v&#x00E0; likes cho m&#x1ED7;i b&#x00E0;i &#x0111;&#x0103;ng</p>
+            <h3> Comments vs Likes <span class="chart-badge chart-badge-local">Local DB</span></h3>
+            <p class="section-description">So sánh số comments và likes cho mỗi bài đăng</p>
             <div class="chart-wrapper" style="height: 400px;"><canvas id="commentsVsLikesChart"></canvas></div>
           </div>
 
           <div class="action-card">
-            <h3>&#x1F4DD; Comment Activity Trend <span class="chart-badge chart-badge-local">Local DB</span></h3>
-            <p class="section-description">S&#x1ED1; l&#x1B0;&#x1EE3;ng comment thu v&#x1EC1; theo ng&#x00E0;y t&#x1EEB; local database</p>
+            <h3> Comment Activity Trend <span class="chart-badge chart-badge-local">Local DB</span></h3>
+            <p class="section-description">Số lượng comment thu về theo ngày từ local database</p>
             <div class="chart-wrapper" style="height: 300px;"><canvas id="commentActivityChart"></canvas></div>
           </div>
 
           <div class="action-card chart-card-hidden">
-            <h3>&#x1F4C8; Growth Rate <span class="chart-badge chart-badge-unsupported">Hide</span></h3>
-            <p class="section-description">T&#x1ED1;c &#x0111;&#x1ED9; t&#x0103;ng tr&#x01B0;&#x1EDF;ng fans/followers (%)</p>
+            <h3> Growth Rate <span class="chart-badge chart-badge-unsupported">Hide</span></h3>
+            <p class="section-description">Tốc độ tăng trưởng fans/followers (%)</p>
             <div class="chart-wrapper" style="height: 300px;"><canvas id="growthRateChart"></canvas></div>
           </div>
 
           <div class="action-card">
-            <h3>&#x1F4CF; Post Length vs Engagement <span class="chart-badge chart-badge-local">Local DB</span></h3>
-            <p class="section-description">T&#x01B0;&#x01A1;ng quan gi&#x1EEF;a &#x0111;&#x1ED9; d&#x00E0;i b&#x00E0;i vi&#x1EBF;t v&#x00E0; engagement</p>
+            <h3> Post Length vs Engagement <span class="chart-badge chart-badge-local">Local DB</span></h3>
+            <p class="section-description">Tương quan giữa độ dài bài viết và engagement</p>
             <div class="chart-wrapper" style="height: 300px;"><canvas id="postLengthEngagementChart"></canvas></div>
           </div>
 
           <div class="action-card">
-            <h3>&#x1F4CA; Weekly/Monthly Comparison <span class="chart-badge chart-badge-local">Local DB</span></h3>
-            <p class="section-description">So s&#x00E1;nh hi&#x1EC7;u su&#x1EA5;t theo tu&#x1EA7;n/th&#x00E1;ng</p>
+            <h3> Weekly/Monthly Comparison <span class="chart-badge chart-badge-local">Local DB</span></h3>
+            <p class="section-description">So sánh hiệu suất theo tuần/tháng</p>
             <div class="chart-wrapper" style="height: 300px;"><canvas id="periodComparisonChart"></canvas></div>
           </div>
         </div>
@@ -531,26 +531,26 @@
         <div class="tab-content" id="ads-tab">
           <div class="section-header">
             <h2>Ads Reporting</h2>
-            <p class="section-description">Theo d&#x00F5;i ad accounts, campaign inventory v&#x00E0; hi&#x1EC7;u su&#x1EA5;t Ads t&#x1EEB; Meta Marketing API</p>
+            <p class="section-description">Theo dõi ad accounts, campaign inventory và hiệu suất Ads từ Meta Marketing API</p>
           </div>
 
           <div class="action-card">
-            <h3>&#x1F50E; Ads Control Center <span class="chart-badge chart-badge-live">Live Meta</span></h3>
+            <h3> Ads Control Center <span class="chart-badge chart-badge-live">Live Meta</span></h3>
             <div class="form-group">
               <label>Ad Account:</label>
-              <select id="adsAccountSelect"><option value="">-- Ch&#x1ECD;n ad account --</option></select>
+              <select id="adsAccountSelect"><option value="">-- Chọn ad account --</option></select>
             </div>
             <div class="form-group">
-              <label>Kho&#x1EA3;ng ng&#x00E0;y:</label>
+              <label>Khoảng ngày:</label>
               <select id="adsDaysSelect">
-                <option value="30">30 ng&#x00E0;y</option>
-                <option value="90">90 ng&#x00E0;y</option>
-                <option value="365">365 ng&#x00E0;y</option>
-                <option value="1095" selected>1095 ng&#x00E0;y</option>
+                <option value="30">30 ngày</option>
+                <option value="90">90 ngày</option>
+                <option value="365">365 ngày</option>
+                <option value="1095" selected>1095 ngày</option>
               </select>
             </div>
             <div class="form-group">
-              <label>M&#x1EE9;c xem:</label>
+              <label>Mức xem:</label>
               <select id="adsLevelSelect">
                 <option value="account">Account</option>
                 <option value="campaign" selected>Campaign</option>
@@ -566,47 +566,47 @@
             <div class="ads-context-bar" id="adsContextBar">
               <span class="ads-context-empty">Chua chon ad account.</span>
             </div>
-            <div id="adsStatusBox" class="result-box">Tab Ads s&#x1EB5;n s&#x00E0;ng. H&#x00E3;y ch&#x1ECD;n ad account ho&#x1EB7;c b&#x1EA5;m refresh.</div>
+            <div id="adsStatusBox" class="result-box">Tab Ads sẵn sàng. Hãy chọn ad account hoặc bấm refresh.</div>
           </div>
 
           <div class="stats-grid ads-stats-grid">
             <div class="stat-card">
-              <div class="stat-emoji">&#x1F4B5;</div>
+              <div class="stat-emoji"></div>
               <div class="stat-label">Spend</div>
               <div class="stat-value" id="adsSpendValue">-</div>
             </div>
             <div class="stat-card">
-              <div class="stat-emoji">&#x1F441;&#xFE0F;</div>
+              <div class="stat-emoji">️</div>
               <div class="stat-label">Impressions</div>
               <div class="stat-value" id="adsImpressionsValue">-</div>
             </div>
             <div class="stat-card">
-              <div class="stat-emoji">&#x1F465;</div>
+              <div class="stat-emoji"></div>
               <div class="stat-label">Reach</div>
               <div class="stat-value" id="adsReachValue">-</div>
             </div>
             <div class="stat-card">
-              <div class="stat-emoji">&#x1F5B1;&#xFE0F;</div>
+              <div class="stat-emoji">️</div>
               <div class="stat-label">Clicks</div>
               <div class="stat-value" id="adsClicksValue">-</div>
             </div>
             <div class="stat-card">
-              <div class="stat-emoji">&#x1F4C8;</div>
+              <div class="stat-emoji"></div>
               <div class="stat-label">CTR</div>
               <div class="stat-value" id="adsCtrValue">-</div>
             </div>
             <div class="stat-card">
-              <div class="stat-emoji">&#x1F3AF;</div>
+              <div class="stat-emoji"></div>
               <div class="stat-label">CPC</div>
               <div class="stat-value" id="adsCpcValue">-</div>
             </div>
             <div class="stat-card">
-              <div class="stat-emoji">&#x1F4B8;</div>
+              <div class="stat-emoji"></div>
               <div class="stat-label">CPM</div>
               <div class="stat-value" id="adsCpmValue">-</div>
             </div>
             <div class="stat-card">
-              <div class="stat-emoji">&#x1F501;</div>
+              <div class="stat-emoji"></div>
               <div class="stat-label">Frequency</div>
               <div class="stat-value" id="adsFrequencyValue">-</div>
             </div>
@@ -628,7 +628,7 @@
           </div>
 
           <div class="action-card">
-            <h3>&#x1F4CB; Campaign Inventory <span class="chart-badge chart-badge-local">Local DB</span></h3>
+            <h3> Campaign Inventory <span class="chart-badge chart-badge-local">Local DB</span></h3>
             <div class="table-wrapper">
               <table class="data-table" id="adsCampaignsTable">
                 <thead>
@@ -640,7 +640,7 @@
           </div>
 
           <div class="action-card">
-            <h3>&#x1F4C8; Ads Performance Table <span class="chart-badge chart-badge-local">Local DB</span></h3>
+            <h3> Ads Performance Table <span class="chart-badge chart-badge-local">Local DB</span></h3>
             <div class="table-wrapper">
               <table class="data-table" id="adsPerformanceTable">
                 <thead>
@@ -660,7 +660,7 @@
           </div>
 
           <div class="action-card">
-            <h3>&#x1F50D; Instagram Control Center <span class="chart-badge chart-badge-live">Live Meta</span></h3>
+            <h3> Instagram Control Center <span class="chart-badge chart-badge-live">Live Meta</span></h3>
             <div class="form-group">
               <label>Instagram Account:</label>
               <select id="instagramAccountSelect"><option value="">-- Chon Instagram account --</option></select>
@@ -692,37 +692,37 @@
 
           <div class="stats-grid ads-stats-grid">
             <div class="stat-card">
-              <div class="stat-emoji">&#x1F465;</div>
+              <div class="stat-emoji"></div>
               <div class="stat-label">Followers</div>
               <div class="stat-value" id="instagramFollowersValue">-</div>
             </div>
             <div class="stat-card">
-              <div class="stat-emoji">&#x1F501;</div>
+              <div class="stat-emoji"></div>
               <div class="stat-label">Following</div>
               <div class="stat-value" id="instagramFollowsValue">-</div>
             </div>
             <div class="stat-card">
-              <div class="stat-emoji">&#x1F4F0;</div>
+              <div class="stat-emoji"></div>
               <div class="stat-label">Media Count</div>
               <div class="stat-value" id="instagramMediaCountValue">-</div>
             </div>
             <div class="stat-card">
-              <div class="stat-emoji">&#x1F441;&#xFE0F;</div>
+              <div class="stat-emoji">️</div>
               <div class="stat-label">Reach</div>
               <div class="stat-value" id="instagramReachValue">-</div>
             </div>
             <div class="stat-card">
-              <div class="stat-emoji">&#x1F440;</div>
+              <div class="stat-emoji"></div>
               <div class="stat-label">Profile Views</div>
               <div class="stat-value" id="instagramProfileViewsValue">-</div>
             </div>
             <div class="stat-card">
-              <div class="stat-emoji">&#x1F44D;</div>
+              <div class="stat-emoji"></div>
               <div class="stat-label">Accounts Engaged</div>
               <div class="stat-value" id="instagramAccountsEngagedValue">-</div>
             </div>
             <div class="stat-card">
-              <div class="stat-emoji">&#x1F525;</div>
+              <div class="stat-emoji"></div>
               <div class="stat-label">Total Interactions</div>
               <div class="stat-value" id="instagramInteractionsValue">-</div>
             </div>
@@ -744,7 +744,7 @@
           </div>
 
           <div class="action-card">
-            <h3>&#x1F4F8; Instagram Media Inventory <span class="chart-badge chart-badge-local">Local DB</span></h3>
+            <h3> Instagram Media Inventory <span class="chart-badge chart-badge-local">Local DB</span></h3>
             <div class="form-group">
               <label>Media Type:</label>
               <select id="instagramMediaTypeSelect">
@@ -772,88 +772,88 @@
         <div class="tab-content" id="automation-tab">
           <div class="section-header">
             <h2>Automation</h2>
-            <p class="section-description">T&#x1EF1; &#x0111;&#x1ED9;ng h&#x00F3;a v&#x00E0; qu&#x1EA3;n l&#x00FD; milestones, offers</p>
+            <p class="section-description">Tự động hóa và quản lý milestones, offers</p>
           </div>
           <div class="action-card">
-            <h3>&#x1F3C6; View Milestones</h3>
+            <h3> View Milestones</h3>
             <div class="form-group">
-              <label>Ch&#x1ECD;n Page:</label>
-              <select id="milestonesSelect"><option value="">-- Ch&#x1ECD;n page --</option></select>
-              <button onclick="loadMilestones()" class="btn btn-secondary">T&#x1EA3;i milestones</button>
+              <label>Chọn Page:</label>
+              <select id="milestonesSelect"><option value="">-- Chọn page --</option></select>
+              <button onclick="loadMilestones()" class="btn btn-secondary">Tải milestones</button>
             </div>
-            <div id="milestonesContainer" class="list-box">Ch&#x1ECD;n page &#x0111;&#x1EC3; xem milestones</div>
+            <div id="milestonesContainer" class="list-box">Chọn page để xem milestones</div>
           </div>
           <div class="action-card">
-            <h3>&#x2795; Create Milestone</h3>
+            <h3>➕ Create Milestone</h3>
             <div class="form-group">
-              <label>Ch&#x1ECD;n Page:</label>
-              <select id="createMilestoneSelect"><option value="">-- Ch&#x1ECD;n page --</option></select>
+              <label>Chọn Page:</label>
+              <select id="createMilestoneSelect"><option value="">-- Chọn page --</option></select>
             </div>
             <div class="form-group">
-              <label>Ti&#x00EA;u &#x0111;&#x1EC1;:</label>
+              <label>Tiêu đề:</label>
               <input type="text" id="milestoneTitle" placeholder="VD: 1000 Fans">
             </div>
             <div class="form-group">
-              <label>M&#x00F4; t&#x1EA3;:</label>
-              <textarea id="milestoneDescription" rows="2" placeholder="M&#x00F4; t&#x1EA3; milestone..."></textarea>
+              <label>Mô tả:</label>
+              <textarea id="milestoneDescription" rows="2" placeholder="Mô tả milestone..."></textarea>
             </div>
             <div class="form-group">
-              <label>Th&#x1EDD;i gian:</label>
+              <label>Thời gian:</label>
               <input type="datetime-local" id="milestoneTime">
             </div>
-            <button onclick="createMilestone()" class="btn btn-primary">T&#x1EA1;o Milestone</button>
+            <button onclick="createMilestone()" class="btn btn-primary">Tạo Milestone</button>
             <div id="createMilestoneResult" class="result-box"></div>
           </div>
           <div class="action-card">
-            <h3>&#x1F381; View Offers</h3>
+            <h3> View Offers</h3>
             <div class="form-group">
-              <label>Ch&#x1ECD;n Page:</label>
-              <select id="offersSelect"><option value="">-- Ch&#x1ECD;n page --</option></select>
-              <button onclick="loadOffers()" class="btn btn-secondary">T&#x1EA3;i offers</button>
+              <label>Chọn Page:</label>
+              <select id="offersSelect"><option value="">-- Chọn page --</option></select>
+              <button onclick="loadOffers()" class="btn btn-secondary">Tải offers</button>
             </div>
-            <div id="offersContainer" class="list-box">Ch&#x1ECD;n page &#x0111;&#x1EC3; xem offers</div>
+            <div id="offersContainer" class="list-box">Chọn page để xem offers</div>
           </div>
           <div class="action-card">
-            <h3>&#x2795; Create Offer</h3>
+            <h3>➕ Create Offer</h3>
             <div class="form-group">
-              <label>Ch&#x1ECD;n Page:</label>
-              <select id="createOfferSelect"><option value="">-- Ch&#x1ECD;n page --</option></select>
+              <label>Chọn Page:</label>
+              <select id="createOfferSelect"><option value="">-- Chọn page --</option></select>
             </div>
             <div class="form-group">
-              <label>Ti&#x00EA;u &#x0111;&#x1EC1;:</label>
-              <input type="text" id="offerTitle" placeholder="VD: Gi&#x1EA3;m gi&#x00E1; 20%">
+              <label>Tiêu đề:</label>
+              <input type="text" id="offerTitle" placeholder="VD: Giảm giá 20%">
             </div>
             <div class="form-group">
-              <label>M&#x00F4; t&#x1EA3;:</label>
-              <textarea id="offerDescription" rows="2" placeholder="M&#x00F4; t&#x1EA3; offer..."></textarea>
+              <label>Mô tả:</label>
+              <textarea id="offerDescription" rows="2" placeholder="Mô tả offer..."></textarea>
             </div>
             <div class="form-group">
-              <label>Ng&#x00E0;y h&#x1EBF;t h&#x1EA1;n:</label>
+              <label>Ngày hết hạn:</label>
               <input type="datetime-local" id="offerExpiration">
             </div>
-            <button onclick="createOffer()" class="btn btn-primary">T&#x1EA1;o Offer</button>
+            <button onclick="createOffer()" class="btn btn-primary">Tạo Offer</button>
             <div id="createOfferResult" class="result-box"></div>
           </div>
           <div class="action-card">
-            <h3>&#x1F916; Auto-Reply Settings</h3>
+            <h3>烙 Auto-Reply Settings</h3>
             <div class="form-group">
-              <label>Ch&#x1ECD;n Page:</label>
-              <select id="autoReplySelect"><option value="">-- Ch&#x1ECD;n page --</option></select>
-              <button onclick="loadAutoReply()" class="btn btn-secondary">T&#x1EA3;i settings</button>
+              <label>Chọn Page:</label>
+              <select id="autoReplySelect"><option value="">-- Chọn page --</option></select>
+              <button onclick="loadAutoReply()" class="btn btn-secondary">Tải settings</button>
             </div>
-            <div id="autoReplyContainer" class="list-box">Ch&#x1ECD;n page &#x0111;&#x1EC3; xem c&#x00E0;i &#x0111;&#x1EB7;t auto-reply</div>
+            <div id="autoReplyContainer" class="list-box">Chọn page để xem cài đặt auto-reply</div>
           </div>
           <div class="action-card">
-            <h3>&#x1F4AC; Set Instant Reply</h3>
+            <h3> Set Instant Reply</h3>
             <div class="form-group">
-              <label>Ch&#x1ECD;n Page:</label>
-              <select id="instantReplySelect"><option value="">-- Ch&#x1ECD;n page --</option></select>
+              <label>Chọn Page:</label>
+              <select id="instantReplySelect"><option value="">-- Chọn page --</option></select>
             </div>
             <div class="form-group">
-              <label>N&#x1ED9;i dung tin nh&#x1EAF;n:</label>
-              <textarea id="instantReplyMessage" rows="3" placeholder="C&#x1EA3;m &#x01A1;n b&#x1EA1;n &#x0111;&#x00E3; li&#x00EA;n h&#x1EC7;! Ch&#x00FA;ng t&#x00F4;i s&#x1EBD; ph&#x1EA3;n h&#x1ED3;i s&#x1EDB;m..."></textarea>
+              <label>Nội dung tin nhắn:</label>
+              <textarea id="instantReplyMessage" rows="3" placeholder="Cảm ơn bạn đã liên hệ! Chúng tôi sẽ phản hồi sớm..."></textarea>
             </div>
-            <button onclick="setInstantReply()" class="btn btn-primary">C&#x00E0;i &#x0111;&#x1EB7;t Instant Reply</button>
+            <button onclick="setInstantReply()" class="btn btn-primary">Cài đặt Instant Reply</button>
             <div id="setInstantReplyResult" class="result-box"></div>
           </div>
         </div>
@@ -862,7 +862,7 @@
   </main>
 
   <footer class="footer">
-    <p>Marketing Reporting Dashboard - Facebook Organic, Ads, Instagram &#x2022; Phase 3</p>
+    <p>Marketing Reporting Dashboard - Facebook Organic, Ads, Instagram • Phase 3</p>
   </footer>
 
   <script src="/js/api.js"></script>
