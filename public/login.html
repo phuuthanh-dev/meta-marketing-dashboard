@@ -80,7 +80,7 @@
 <body>
   <form class="login-card" id="loginForm">
     <h1>Internal Login</h1>
-    <p>Dang nhap de vao dashboard reporting noi bo.</p>
+    <p>Đăng nhập để vào dashboard reporting nội bộ.</p>
 
     <label for="username">Username</label>
     <input id="username" name="username" type="text" autocomplete="username" required>
@@ -88,7 +88,7 @@
     <label for="password">Password</label>
     <input id="password" name="password" type="password" autocomplete="current-password" required>
 
-    <button type="submit">Dang nhap</button>
+    <button type="submit">Đăng nhập</button>
     <div class="error" id="errorBox"></div>
     <div class="note">Tai khoan dang nhap duoc cau hinh bang `.env` tren server.</div>
   </form>
@@ -117,7 +117,7 @@
 
         window.location.href = '/';
       } catch (error) {
-        errorBox.textContent = error.message || 'Dang nhap that bai';
+        errorBox.textContent = error.message || 'Đăng nhập thất bại';
       }
     });
   </script>

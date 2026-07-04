@@ -135,7 +135,7 @@
         <div class="insight-card">
           <h4>${escapeHtml((group.dimensions || []).join(' + ') || group.key || 'unknown')}</h4>
           <div class="insight-value">${formatNumber(group.total || 0)}</div>
-          <div class="insight-values">${preview || '<div class="empty">Khong co ket qua breakdown</div>'}</div>
+          <div class="insight-values">${preview || '<div class="empty">Không có kết quả breakdown</div>'}</div>
         </div>
       `;
     }).join('');
@@ -164,7 +164,7 @@
     tbody.innerHTML = filteredMedia.map(item => {
       const insights = item.insights_snapshot;
       const metrics = insights?.metrics || {};
-      const insightLabel = insights?.supported ? 'Supported' : (insights?.reason || 'Khong co media insights');
+      const insightLabel = insights?.supported ? 'Supported' : (insights?.reason || 'Không có media insights');
 
       return `
         <tr>

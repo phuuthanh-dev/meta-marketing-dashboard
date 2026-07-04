@@ -422,7 +422,7 @@ class Phase3Charts {
         this.charts.demographics = null;
       }
 
-      const note = result.data?.note || 'Facebook Page Insights API khong con cung cap demographics age/gender cho chart nay.';
+      const note = result.data?.note || 'Facebook Page Insights API không còn cung cấp demographics age/gender cho chart này.';
       this.renderUnavailableState(ctx, 'Demographics unavailable', note);
     } catch (error) {
       console.error('Error loading demographics chart:', error);

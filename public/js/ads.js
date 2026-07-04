@@ -261,7 +261,7 @@
     if (accountPayload.meta?.supported === false && summaryPayload.meta?.supported === false) {
       setStatus(`
         <strong>${escapeHtml(selectedAccount?.name || accountId)}</strong><br>
-        ${escapeHtml(summaryPayload.meta?.reason || accountPayload.meta?.reason || 'Khong co du lieu Ads.')}<br>
+        ${escapeHtml(summaryPayload.meta?.reason || accountPayload.meta?.reason || 'Không có dữ liệu Ads.')}<br>
         Goi y: thu <strong>Sync Ads</strong> voi moc 1095 ngay neu account co delivery cu.
       `, 'info');
     } else {
@@ -305,7 +305,7 @@
 
       setStatus(`
         <span class="success">Da sync Ads xong.</span><br>
-        Ad account da duoc dong bo cho cua so ${days} ngay.
+        Ad account đã được đồng bộ cho cửa sổ ${days} ngày.
       `);
 
       const syncedAccountId = accountId;
