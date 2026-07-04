@@ -79,12 +79,26 @@ class MetaAdsAPI {
     return date.toISOString().split('T')[0];
   }
 
+  buildDateRange(days, options = {}) {
+    const until = options.until ? new Date(options.until) : new Date();
+    until.setHours(0, 0, 0, 0);
+
+    const since = options.since
+      ? new Date(options.since)
+      : new Date(until.getTime() - ((days - 1) * 24 * 60 * 60 * 1000));
+    since.setHours(0, 0, 0, 0);
+
+    return {
+      since: this.formatDate(since),
+      until: this.formatDate(until)
+    };
+  }
+
   buildDateChunks(days, chunkSizeDays) {
     const chunks = [];
-    const until = new Date();
-    until.setHours(0, 0, 0, 0);
-    const since = new Date(until);
-    since.setDate(since.getDate() - (days - 1));
+    const range = this.buildDateRange(days);
+    const until = new Date(range.until);
+    const since = new Date(range.since);
 
     let cursor = new Date(since);
     while (cursor <= until) {
@@ -172,21 +186,12 @@ class MetaAdsAPI {
     }
 
     if (options.since || options.until) {
-      const until = options.until || new Date();
-      const since = options.since || new Date(until.getTime() - ((days - 1) * 24 * 60 * 60 * 1000));
-      params.time_range = JSON.stringify({
-        since: typeof since === 'string' ? since : since.toISOString().split('T')[0],
-        until: typeof until === 'string' ? until : until.toISOString().split('T')[0]
-      });
-    } else if (days >= 365) {
-      params.date_preset = 'maximum';
+      params.time_range = JSON.stringify(this.buildDateRange(days, {
+        since: options.since,
+        until: options.until
+      }));
     } else {
-      const until = new Date();
-      const since = new Date(until.getTime() - ((days - 1) * 24 * 60 * 60 * 1000));
-      params.time_range = JSON.stringify({
-        since: since.toISOString().split('T')[0],
-        until: until.toISOString().split('T')[0]
-      });
+      params.time_range = JSON.stringify(this.buildDateRange(days));
     }
 
     try {

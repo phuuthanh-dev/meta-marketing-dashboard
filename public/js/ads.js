@@ -3,9 +3,10 @@
     accounts: [],
     selectedAccountId: '',
     selectedLevel: 'campaign',
-    summary: null,
     accountInsights: [],
     campaigns: [],
+    adSets: [],
+    ads: [],
     performanceRows: []
   };
 
@@ -17,6 +18,12 @@
   function formatCurrency(value, currency = 'USD') {
     const numeric = Number(value) || 0;
     return `${formatNumber(numeric)} ${currency}`;
+  }
+
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text || '';
+    return div.innerHTML;
   }
 
   function getSelectedDays() {
@@ -40,10 +47,14 @@
 
   function updateContextBar(account, level, days) {
     const box = document.getElementById('adsContextBar');
+    const help = document.getElementById('adsLevelHelp');
     if (!box) return;
 
     if (!account) {
       box.innerHTML = '<span class="ads-context-empty">Chua chon ad account.</span>';
+      if (help) {
+        help.textContent = 'Summary cards va 2 trend chart phia tren luon la account-level. Muc xem chi doi phan breakdown ben duoi: inventory, performance table va export CSV.';
+      }
       return;
     }
 
@@ -53,7 +64,17 @@
       <span class="ads-context-pill currency"><strong>Currency:</strong> ${escapeHtml(account.currency || 'USD')}</span>
       <span class="ads-context-pill"><strong>Timezone:</strong> ${escapeHtml(account.timezone_name || '-')}</span>
       <span class="ads-context-pill scope"><strong>Scope:</strong> ${escapeHtml(level)} | ${escapeHtml(String(days))} ngay</span>
+      ${Number(account.breakdown_rows || 0) === 0 && Number(account.account_daily_rows || 0) > 0
+        ? '<span class="ads-context-pill" style="background:#fff1f0;border-color:#ffc4b8;color:#b42318;"><strong>Needs resync</strong></span>'
+        : ''}
     `;
+
+    if (help) {
+      help.innerHTML = `
+        <strong>Account Summary:</strong> KPI cards va 2 trend chart phia tren luon tong hop theo toan ad account.<br>
+        <strong>Breakdown Level:</strong> Ban dang xem du lieu nhom theo <strong>${escapeHtml(level)}</strong> o inventory, performance table va export CSV.
+      `;
+    }
   }
 
   function setSummaryCards(totals, currency = 'USD') {
@@ -90,20 +111,98 @@
     });
   }
 
-  function renderCampaignTable(campaigns) {
+  function getInventoryConfig(level) {
+    if (level === 'adset') {
+      return {
+        title: 'Ad Set Inventory',
+        head: '<tr><th>Ad Set</th><th>Campaign ID</th><th>Status</th><th>Optimization</th><th>Billing Event</th><th>Budget</th></tr>',
+        empty: 'Chua co ad set trong local database cho ad account nay.'
+      };
+    }
+
+    if (level === 'ad') {
+      return {
+        title: 'Ad Inventory',
+        head: '<tr><th>Ad</th><th>Campaign ID</th><th>Ad Set ID</th><th>Status</th><th>Creative ID</th><th>Account</th></tr>',
+        empty: 'Chua co ad trong local database cho ad account nay.'
+      };
+    }
+
+    return {
+      title: 'Campaign Inventory',
+      head: '<tr><th>Campaign</th><th>Objective</th><th>Status</th><th>Buying Type</th><th>Start</th><th>Stop</th></tr>',
+      empty: 'Chua co campaign trong local database cho ad account nay.'
+    };
+  }
+
+  function getInventoryRows(level) {
+    if (level === 'ad') return state.ads;
+    if (level === 'adset') return state.adSets;
+    return state.campaigns;
+  }
+
+  function renderInventoryTable(level) {
     const tbody = document.querySelector('#adsCampaignsTable tbody');
+    const head = document.getElementById('adsInventoryHead');
+    const title = document.getElementById('adsInventoryTitle');
     if (!tbody) return;
 
-    if (!campaigns || campaigns.length === 0) {
+    const config = getInventoryConfig(level);
+    const rows = getInventoryRows(level);
+
+    if (head) head.innerHTML = config.head;
+    if (title) title.innerHTML = `&#x1F4CB; ${config.title} <span class="chart-badge chart-badge-local">Local DB</span>`;
+
+    if (!rows || rows.length === 0) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="6" class="empty-state">Chua co campaign trong local database cho ad account nay.</td>
+          <td colspan="6" class="empty-state">${config.empty}</td>
         </tr>
       `;
       return;
     }
 
-    tbody.innerHTML = campaigns.map(campaign => `
+    if (level === 'adset') {
+      const bodyRows = rows.map(adSet => `
+        <tr>
+          <td><strong>${escapeHtml(adSet.name || '')}</strong></td>
+          <td>${escapeHtml(adSet.campaign_id || '-')}</td>
+          <td><span class="role-badge">${escapeHtml(adSet.effective_status || adSet.status || '-')}</span></td>
+          <td>${escapeHtml(adSet.optimization_goal || '-')}</td>
+          <td>${escapeHtml(adSet.billing_event || '-')}</td>
+          <td>${formatNumber(adSet.daily_budget || adSet.lifetime_budget || 0)}</td>
+        </tr>
+      `).join('');
+      tbody.innerHTML = `${bodyRows}
+        <tr class="totals-row">
+          <td><strong>Total Ad Sets</strong></td>
+          <td colspan="5"><strong>${formatNumber(rows.length)}</strong></td>
+        </tr>
+      `;
+      return;
+    }
+
+    if (level === 'ad') {
+      const bodyRows = rows.map(ad => `
+        <tr>
+          <td><strong>${escapeHtml(ad.name || '')}</strong></td>
+          <td>${escapeHtml(ad.campaign_id || '-')}</td>
+          <td>${escapeHtml(ad.ad_set_id || '-')}</td>
+          <td><span class="role-badge">${escapeHtml(ad.effective_status || ad.status || '-')}</span></td>
+          <td>${escapeHtml(ad.creative_id || '-')}</td>
+          <td>${escapeHtml(ad.ad_account_id || '-')}</td>
+        </tr>
+      `).join('');
+      tbody.innerHTML = `${bodyRows}
+        <tr class="totals-row">
+          <td><strong>Total Ads</strong></td>
+          <td colspan="5"><strong>${formatNumber(rows.length)}</strong></td>
+        </tr>
+      `;
+      return;
+    }
+
+    const bodyRows = rows.map(campaign => `
       <tr>
         <td><strong>${escapeHtml(campaign.name || '')}</strong></td>
         <td>${escapeHtml(campaign.objective || '-')}</td>
@@ -113,6 +212,12 @@
         <td>${campaign.stop_time ? new Date(campaign.stop_time).toLocaleDateString('vi-VN') : '-'}</td>
       </tr>
     `).join('');
+    tbody.innerHTML = `${bodyRows}
+      <tr class="totals-row">
+        <td><strong>Total Campaigns</strong></td>
+        <td colspan="5"><strong>${formatNumber(rows.length)}</strong></td>
+      </tr>
+    `;
   }
 
   function renderPerformanceTable(rows, currency = 'USD') {
@@ -128,7 +233,27 @@
       return;
     }
 
-    tbody.innerHTML = rows.map(row => `
+    const totals = rows.reduce((acc, row) => {
+      acc.spend += Number(row.spend || 0);
+      acc.impressions += Number(row.impressions || 0);
+      acc.reach += Number(row.reach || 0);
+      acc.clicks += Number(row.clicks || 0);
+      acc.frequencySum += Number(row.frequency || 0);
+      return acc;
+    }, {
+      spend: 0,
+      impressions: 0,
+      reach: 0,
+      clicks: 0,
+      frequencySum: 0
+    });
+
+    const totalCtr = totals.impressions > 0 ? (totals.clicks * 100 / totals.impressions) : 0;
+    const totalCpc = totals.clicks > 0 ? (totals.spend / totals.clicks) : 0;
+    const totalCpm = totals.impressions > 0 ? (totals.spend * 1000 / totals.impressions) : 0;
+    const totalFrequency = rows.length > 0 ? (totals.frequencySum / rows.length) : 0;
+
+    const bodyRows = rows.map(row => `
       <tr>
         <td><strong>${escapeHtml(row.entity_name || row.entity_id || '-')}</strong></td>
         <td>${formatCurrency(row.spend, currency)}</td>
@@ -141,18 +266,29 @@
         <td>${formatNumber(row.frequency)}</td>
       </tr>
     `).join('');
+
+    tbody.innerHTML = `${bodyRows}
+      <tr class="totals-row">
+        <td><strong>Total</strong></td>
+        <td><strong>${formatCurrency(totals.spend, currency)}</strong></td>
+        <td><strong>${formatNumber(totals.impressions)}</strong></td>
+        <td><strong>${formatNumber(totals.reach)}</strong></td>
+        <td><strong>${formatNumber(totals.clicks)}</strong></td>
+        <td><strong>${formatNumber(totalCtr)}%</strong></td>
+        <td><strong>${formatCurrency(totalCpc, currency)}</strong></td>
+        <td><strong>${formatCurrency(totalCpm, currency)}</strong></td>
+        <td><strong>${formatNumber(totalFrequency)}</strong></td>
+      </tr>
+    `;
   }
 
-  function renderInventoryChart(campaigns) {
-    const active = campaigns.filter(item => (item.effective_status || item.status || '').toUpperCase() === 'ACTIVE').length;
-    const paused = campaigns.filter(item => (item.effective_status || item.status || '').toUpperCase() === 'PAUSED').length;
-    const other = Math.max(0, campaigns.length - active - paused);
+  function renderInventoryChart(level) {
+    const rows = getInventoryRows(level);
+    const active = rows.filter(item => (item.effective_status || item.status || '').toUpperCase() === 'ACTIVE').length;
+    const paused = rows.filter(item => (item.effective_status || item.status || '').toUpperCase() === 'PAUSED').length;
+    const other = Math.max(0, rows.length - active - paused);
 
-    charts.createPieChart(
-      'adsInventoryChart',
-      ['Active', 'Paused', 'Other'],
-      [active, paused, other]
-    );
+    charts.createPieChart('adsInventoryChart', ['Active', 'Paused', 'Other'], [active, paused, other]);
   }
 
   function renderTrends(insights) {
@@ -201,27 +337,38 @@
 
     state.accounts = accounts;
     select.innerHTML = '<option value="">-- Chon ad account --</option>' + accounts.map(account => `
-      <option value="${account.id}">${escapeHtml(account.name)} (${escapeHtml(account.portfolio || '-')})</option>
+      <option value="${account.id}">${escapeHtml(account.name)} (${escapeHtml(account.portfolio || '-')})${Number(account.breakdown_rows || 0) === 0 && Number(account.account_daily_rows || 0) > 0 ? ' [Needs resync]' : ''}</option>
     `).join('');
 
-    if (accounts.length > 0) {
+    if (accounts.length > 0 && !state.selectedAccountId) {
       state.selectedAccountId = accounts[0].id;
       select.value = accounts[0].id;
     }
   }
 
-  async function loadCampaigns() {
+  async function loadInventory() {
     const accountId = state.selectedAccountId;
     if (!accountId) {
-      renderCampaignTable([]);
+      renderInventoryTable(state.selectedLevel);
       return;
     }
 
-    const response = await fetch(`/api/ads/accounts/${accountId}/campaigns`);
-    const payload = await response.json();
-    state.campaigns = payload.data || [];
-    renderCampaignTable(state.campaigns);
-    renderInventoryChart(state.campaigns);
+    const [campaignResponse, adSetsResponse, adsResponse] = await Promise.all([
+      fetch(`/api/ads/accounts/${accountId}/campaigns`),
+      fetch(`/api/ads/accounts/${accountId}/adsets`),
+      fetch(`/api/ads/accounts/${accountId}/ads`)
+    ]);
+
+    const campaignsPayload = await campaignResponse.json();
+    const adSetsPayload = await adSetsResponse.json();
+    const adsPayload = await adsResponse.json();
+
+    state.campaigns = campaignsPayload.data || [];
+    state.adSets = adSetsPayload.data || [];
+    state.ads = adsPayload.data || [];
+
+    renderInventoryTable(state.selectedLevel);
+    renderInventoryChart(state.selectedLevel);
   }
 
   async function loadInsights() {
@@ -240,6 +387,7 @@
 
     const selectedAccount = state.accounts.find(item => item.id === accountId);
     updateContextBar(selectedAccount, level, days);
+
     const accountResponse = await fetch(`/api/ads/accounts/${accountId}/insights?level=account&days=${days}`);
     const accountPayload = await accountResponse.json();
     state.accountInsights = accountPayload.data || [];
@@ -250,7 +398,6 @@
     totals.avg_cpm = totals.total_impressions > 0 ? (totals.total_spend * 1000 / totals.total_impressions) : 0;
     totals.avg_frequency = totals.rows > 0 ? (totals.frequency_sum / totals.rows) : 0;
     setSummaryCards(totals, selectedAccount?.currency || 'USD');
-
     renderTrends(state.accountInsights);
 
     const summaryResponse = await fetch(`/api/ads/accounts/${accountId}/insights-summary?level=${level}&days=${days}`);
@@ -258,25 +405,32 @@
     state.performanceRows = summaryPayload.data || [];
     renderPerformanceTable(state.performanceRows, selectedAccount?.currency || 'USD');
 
+    const inventoryCount = getInventoryRows(level).length;
+    const needsDeepSync = (level === 'adset' || level === 'ad') && state.performanceRows.length === 0;
+
     if (accountPayload.meta?.supported === false && summaryPayload.meta?.supported === false) {
       setStatus(`
         <strong>${escapeHtml(selectedAccount?.name || accountId)}</strong><br>
-        ${escapeHtml(summaryPayload.meta?.reason || accountPayload.meta?.reason || 'Không có dữ liệu Ads.')}<br>
+        ${escapeHtml(summaryPayload.meta?.reason || accountPayload.meta?.reason || 'Khong co du lieu Ads.')}<br>
         Goi y: thu <strong>Sync Ads</strong> voi moc 1095 ngay neu account co delivery cu.
       `, 'info');
-    } else {
-      setStatus(`
-        <span class="success">Da tai du lieu Ads cho ${escapeHtml(selectedAccount?.name || accountId)}.</span><br>
-        ${state.accountInsights.length} dong daily account insight va ${state.performanceRows.length} dong tong hop theo ${escapeHtml(level)}.
-      `);
+      return;
     }
+
+    setStatus(`
+      <span class="success">Da tai du lieu Ads cho ${escapeHtml(selectedAccount?.name || accountId)}.</span><br>
+      ${state.accountInsights.length} dong daily account insight, ${state.performanceRows.length} dong tong hop theo ${escapeHtml(level)}, ${inventoryCount} row inventory.
+      ${Number(selectedAccount?.breakdown_rows || 0) === 0 && Number(selectedAccount?.account_daily_rows || 0) > 0 ? '<br><strong>Luu y:</strong> Account nay dang co account-level data nhung chua co breakdown moi. Can bam <strong>Sync Ads</strong> de nap lai campaign/ad set/ad.' : ''}
+      ${needsDeepSync ? '<br>Level nay can deep sync. Bam <strong>Sync Ads</strong> khi dang o muc xem nay de nap them ad set / ad insights.' : ''}
+    `);
   }
 
   async function refreshAdsView() {
     try {
       setStatus('<div class="loading">Dang tai Ads...</div>');
       state.selectedAccountId = getSelectedAccountId();
-      await loadCampaigns();
+      state.selectedLevel = getSelectedLevel();
+      await loadInventory();
       await loadInsights();
     } catch (error) {
       setStatus(`<span class="error">Loi Ads: ${escapeHtml(error.message)}</span>`);
@@ -286,6 +440,8 @@
   async function syncAds() {
     const days = getSelectedDays();
     const accountId = state.selectedAccountId;
+    const includeDeepLevels = state.selectedLevel === 'adset' || state.selectedLevel === 'ad';
+
     try {
       setStatus('<div class="loading">Dang sync Ads tu Meta...</div>');
       if (!accountId) {
@@ -295,7 +451,7 @@
       const response = await fetch(`/api/ads/accounts/${accountId}/sync`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ days: Number(days) })
+        body: JSON.stringify({ days: Number(days), deep: includeDeepLevels })
       });
       const payload = await response.json();
 
@@ -305,7 +461,7 @@
 
       setStatus(`
         <span class="success">Da sync Ads xong.</span><br>
-        Ad account đã được đồng bộ cho cửa sổ ${days} ngày.
+        Ad account da duoc dong bo cho cua so ${days} ngay${includeDeepLevels ? ' va co nap deep levels' : ''}.
       `);
 
       const syncedAccountId = accountId;

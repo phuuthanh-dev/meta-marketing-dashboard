@@ -12,6 +12,23 @@ class DB {
     this.init();
   }
 
+  mergePortfolioValues(currentValue, nextValue) {
+    const values = new Set();
+
+    for (const raw of [currentValue, nextValue]) {
+      const items = String(raw || '')
+        .split(',')
+        .map(item => item.trim())
+        .filter(Boolean);
+
+      for (const item of items) {
+        values.add(item);
+      }
+    }
+
+    return Array.from(values).sort((a, b) => a.localeCompare(b)).join(', ');
+  }
+
   init() {
     // Enable foreign keys
     this.db.exec('PRAGMA foreign_keys = ON');
@@ -153,6 +170,8 @@ class DB {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         ad_account_id TEXT,
         level TEXT,
+        data_grain TEXT DEFAULT 'legacy',
+        sync_window_days INTEGER,
         account_id TEXT,
         account_name TEXT,
         campaign_id TEXT,
@@ -289,6 +308,34 @@ class DB {
     }
 
     console.log('✅ Database initialized with indexes and foreign keys');
+    try {
+      this.db.exec(`ALTER TABLE ad_insights_daily ADD COLUMN data_grain TEXT DEFAULT 'legacy'`);
+    } catch (e) {
+      // Column already exists
+    }
+    try {
+      this.db.exec(`ALTER TABLE ad_insights_daily ADD COLUMN sync_window_days INTEGER`);
+    } catch (e) {
+      // Column already exists
+    }
+
+    this.db.exec(`
+      UPDATE ad_insights_daily
+      SET data_grain = CASE
+        WHEN level = 'account' THEN 'daily'
+        ELSE 'all_days'
+      END
+      WHERE data_grain IS NULL OR data_grain = '' OR data_grain = 'legacy'
+    `);
+
+    this.db.exec(`
+      UPDATE ad_insights_daily
+      SET sync_window_days = CASE
+        WHEN level = 'account' THEN 1
+        ELSE CAST((julianday(date_stop) - julianday(date_start) + 1) AS INTEGER)
+      END
+      WHERE sync_window_days IS NULL OR sync_window_days <= 0
+    `);
   }
 
   savePage(page) {
@@ -508,6 +555,14 @@ class DB {
   }
 
   saveAdAccount(account) {
+    const existing = this.db.prepare(`
+      SELECT portfolio
+      FROM ad_accounts
+      WHERE id = ?
+    `).get(account.id);
+
+    const mergedPortfolio = this.mergePortfolioValues(existing?.portfolio, account.portfolio);
+
     this.db.prepare(`
       INSERT INTO ad_accounts (id, account_id, name, account_status, currency, timezone_name, portfolio)
       VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -526,7 +581,7 @@ class DB {
       account.account_status || '',
       account.currency || '',
       account.timezone_name || '',
-      account.portfolio || ''
+      mergedPortfolio
     );
   }
 
@@ -621,6 +676,8 @@ class DB {
     const normalized = {
       ad_account_id: insight.ad_account_id,
       level: insight.level,
+      data_grain: insight.data_grain || (insight.level === 'account' ? 'daily' : 'all_days'),
+      sync_window_days: parseInt(insight.sync_window_days, 10) || (insight.level === 'account' ? 1 : null),
       account_id: insight.account_id || '',
       account_name: insight.account_name || '',
       campaign_id: insight.campaign_id || null,
@@ -667,6 +724,8 @@ class DB {
       this.db.prepare(`
         UPDATE ad_insights_daily
         SET
+          data_grain = ?,
+          sync_window_days = ?,
           account_id = ?,
           account_name = ?,
           campaign_id = ?,
@@ -686,6 +745,8 @@ class DB {
           raw_json = ?
         WHERE id = ?
       `).run(
+        normalized.data_grain,
+        normalized.sync_window_days,
         normalized.account_id,
         normalized.account_name,
         normalized.campaign_id,
@@ -710,14 +771,16 @@ class DB {
 
     this.db.prepare(`
       INSERT INTO ad_insights_daily (
-        ad_account_id, level, account_id, account_name, campaign_id, campaign_name,
+        ad_account_id, level, data_grain, sync_window_days, account_id, account_name, campaign_id, campaign_name,
         ad_set_id, ad_set_name, ad_id, ad_name, date_start, date_stop, impressions,
         reach, clicks, ctr, cpc, cpm, spend, frequency, raw_json
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       normalized.ad_account_id,
       normalized.level,
+      normalized.data_grain,
+      normalized.sync_window_days,
       normalized.account_id,
       normalized.account_name,
       normalized.campaign_id,
@@ -796,10 +859,94 @@ class DB {
     };
   }
 
+  cleanupAdBreakdownInsights() {
+    const before = this.db.prepare(`
+      SELECT
+        COUNT(*) as total,
+        SUM(CASE WHEN level = 'account' THEN 1 ELSE 0 END) as account_rows,
+        SUM(CASE WHEN level = 'campaign' THEN 1 ELSE 0 END) as campaign_rows,
+        SUM(CASE WHEN level = 'adset' THEN 1 ELSE 0 END) as adset_rows,
+        SUM(CASE WHEN level = 'ad' THEN 1 ELSE 0 END) as ad_rows
+      FROM ad_insights_daily
+    `).get();
+
+    const deleted = this.db.prepare(`
+      DELETE FROM ad_insights_daily
+      WHERE level IN ('campaign', 'adset', 'ad')
+    `).run();
+
+    const after = this.db.prepare(`
+      SELECT
+        COUNT(*) as total,
+        SUM(CASE WHEN level = 'account' THEN 1 ELSE 0 END) as account_rows,
+        SUM(CASE WHEN level = 'campaign' THEN 1 ELSE 0 END) as campaign_rows,
+        SUM(CASE WHEN level = 'adset' THEN 1 ELSE 0 END) as adset_rows,
+        SUM(CASE WHEN level = 'ad' THEN 1 ELSE 0 END) as ad_rows
+      FROM ad_insights_daily
+    `).get();
+
+    return {
+      before,
+      after,
+      deleted: deleted.changes
+    };
+  }
+
+  cleanupInvalidAdBreakdownRows() {
+    const before = this.db.prepare(`
+      SELECT
+        SUM(CASE WHEN level = 'campaign' AND campaign_id IS NULL THEN 1 ELSE 0 END) as missing_campaign_rows,
+        SUM(CASE WHEN level = 'adset' AND (campaign_id IS NULL OR ad_set_id IS NULL) THEN 1 ELSE 0 END) as missing_adset_rows,
+        SUM(CASE WHEN level = 'ad' AND (campaign_id IS NULL OR ad_set_id IS NULL OR ad_id IS NULL) THEN 1 ELSE 0 END) as missing_ad_rows
+      FROM ad_insights_daily
+      WHERE data_grain = 'all_days'
+    `).get();
+
+    const deleted = this.db.prepare(`
+      DELETE FROM ad_insights_daily
+      WHERE data_grain = 'all_days'
+        AND (
+          (level = 'campaign' AND campaign_id IS NULL)
+          OR (level = 'adset' AND (campaign_id IS NULL OR ad_set_id IS NULL))
+          OR (level = 'ad' AND (campaign_id IS NULL OR ad_set_id IS NULL OR ad_id IS NULL))
+        )
+    `).run();
+
+    const after = this.db.prepare(`
+      SELECT
+        SUM(CASE WHEN level = 'campaign' AND campaign_id IS NULL THEN 1 ELSE 0 END) as missing_campaign_rows,
+        SUM(CASE WHEN level = 'adset' AND (campaign_id IS NULL OR ad_set_id IS NULL) THEN 1 ELSE 0 END) as missing_adset_rows,
+        SUM(CASE WHEN level = 'ad' AND (campaign_id IS NULL OR ad_set_id IS NULL OR ad_id IS NULL) THEN 1 ELSE 0 END) as missing_ad_rows
+      FROM ad_insights_daily
+      WHERE data_grain = 'all_days'
+    `).get();
+
+    return {
+      before,
+      after,
+      deleted: deleted.changes
+    };
+  }
+
   getAdAccounts() {
     return this.db.prepare(`
-      SELECT *
-      FROM ad_accounts
+      SELECT
+        a.*,
+        (
+          SELECT COUNT(*)
+          FROM ad_insights_daily i
+          WHERE i.ad_account_id = a.id
+            AND i.level = 'account'
+            AND i.data_grain = 'daily'
+        ) as account_daily_rows,
+        (
+          SELECT COUNT(*)
+          FROM ad_insights_daily i
+          WHERE i.ad_account_id = a.id
+            AND i.level IN ('campaign', 'adset', 'ad')
+            AND i.data_grain = 'all_days'
+        ) as breakdown_rows
+      FROM ad_accounts a
       ORDER BY name COLLATE NOCASE ASC
     `).all();
   }
@@ -840,6 +987,7 @@ class DB {
       SELECT *
       FROM ad_insights_daily
       WHERE level = ?
+        AND data_grain = 'daily'
         AND date_start >= ?
     `;
     const params = [level, sinceStr];
@@ -876,24 +1024,41 @@ class DB {
     }
 
     let sql = `
-      SELECT
-        ${idField} as entity_id,
-        ${nameField} as entity_name,
-        SUM(spend) as spend,
-        SUM(impressions) as impressions,
-        SUM(reach) as reach,
-        SUM(clicks) as clicks,
-        CASE WHEN SUM(impressions) > 0 THEN (SUM(clicks) * 100.0 / SUM(impressions)) ELSE 0 END as ctr,
-        CASE WHEN SUM(clicks) > 0 THEN (SUM(spend) / SUM(clicks)) ELSE 0 END as cpc,
-        CASE WHEN SUM(impressions) > 0 THEN (SUM(spend) * 1000.0 / SUM(impressions)) ELSE 0 END as cpm,
-        AVG(frequency) as frequency,
-        MIN(date_start) as first_date,
-        MAX(date_stop) as last_date
-      FROM ad_insights_daily
-      WHERE level = ?
-        AND date_start >= ?
+      WITH ranked AS (
+        SELECT
+          ${idField} as entity_id,
+          ${nameField} as entity_name,
+          data_grain,
+          sync_window_days,
+          spend,
+          impressions,
+          reach,
+          clicks,
+          ctr,
+          cpc,
+          cpm,
+          frequency,
+          date_start as first_date,
+          date_stop as last_date,
+          ROW_NUMBER() OVER (
+            PARTITION BY ${idField}
+            ORDER BY
+              CASE
+                WHEN sync_window_days = ? THEN 0
+                WHEN sync_window_days IS NULL THEN 2
+                ELSE 1
+              END,
+              ABS(COALESCE(sync_window_days, 999999) - ?),
+              date_stop DESC,
+              date_start ASC
+          ) as rn
+        FROM ad_insights_daily
+        WHERE level = ?
+          AND data_grain = 'all_days'
+          AND date_stop >= ?
     `;
-    const params = [level, sinceStr];
+    const requestedDays = parseInt(days, 10) || 30;
+    const params = [requestedDays, requestedDays, level, sinceStr];
 
     if (adAccountId) {
       sql += ' AND ad_account_id = ?';
@@ -906,8 +1071,25 @@ class DB {
     }
 
     sql += `
-      AND ${idField} IS NOT NULL
-      GROUP BY ${idField}, ${nameField}
+          AND ${idField} IS NOT NULL
+      )
+      SELECT
+        entity_id,
+        entity_name,
+        data_grain,
+        sync_window_days,
+        spend,
+        impressions,
+        reach,
+        clicks,
+        CASE WHEN impressions > 0 THEN (clicks * 100.0 / impressions) ELSE 0 END as ctr,
+        CASE WHEN clicks > 0 THEN (spend / clicks) ELSE 0 END as cpc,
+        CASE WHEN impressions > 0 THEN (spend * 1000.0 / impressions) ELSE 0 END as cpm,
+        frequency,
+        first_date,
+        last_date
+      FROM ranked
+      WHERE rn = 1
       ORDER BY spend DESC, clicks DESC, entity_name COLLATE NOCASE ASC
     `;
 
@@ -932,6 +1114,7 @@ class DB {
         AVG(frequency) as frequency
       FROM ad_insights_daily
       WHERE level = 'account'
+        AND data_grain = 'daily'
         AND date_start >= ?
       GROUP BY date_start
       ORDER BY date_start ASC
@@ -949,6 +1132,7 @@ class DB {
         AVG(frequency) as avg_frequency
       FROM ad_insights_daily
       WHERE level = 'account'
+        AND data_grain = 'daily'
         AND date_start >= ?
     `).get(sinceStr);
 

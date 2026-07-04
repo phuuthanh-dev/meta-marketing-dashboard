@@ -9,6 +9,77 @@ class AdsFetcher {
     this.db = new Database();
   }
 
+  aggregateSnapshotInsights(insights, level, days) {
+    if (level === 'account') {
+      return insights.map(insight => ({
+        ...insight,
+        data_grain: 'daily',
+        sync_window_days: 1
+      }));
+    }
+
+    const grouped = new Map();
+
+    for (const insight of insights) {
+      const entityId = level === 'ad'
+        ? (insight.ad_id || '')
+        : level === 'adset'
+          ? (insight.adset_id || '')
+          : (insight.campaign_id || '');
+
+      if (!entityId) {
+        continue;
+      }
+
+      if (!grouped.has(entityId)) {
+        grouped.set(entityId, {
+          ...insight,
+          impressions: 0,
+          reach: 0,
+          clicks: 0,
+          spend: 0,
+          frequency_sum: 0,
+          frequency_count: 0,
+          date_start: insight.date_start,
+          date_stop: insight.date_stop
+        });
+      }
+
+      const current = grouped.get(entityId);
+      current.impressions += parseInt(insight.impressions, 10) || 0;
+      current.reach += parseInt(insight.reach, 10) || 0;
+      current.clicks += parseInt(insight.clicks, 10) || 0;
+      current.spend += parseFloat(insight.spend) || 0;
+      current.frequency_sum += parseFloat(insight.frequency) || 0;
+      current.frequency_count += 1;
+
+      if (insight.date_start && (!current.date_start || insight.date_start < current.date_start)) {
+        current.date_start = insight.date_start;
+      }
+
+      if (insight.date_stop && (!current.date_stop || insight.date_stop > current.date_stop)) {
+        current.date_stop = insight.date_stop;
+      }
+    }
+
+    return Array.from(grouped.values()).map(insight => {
+      const ctr = insight.impressions > 0 ? (insight.clicks * 100 / insight.impressions) : 0;
+      const cpc = insight.clicks > 0 ? (insight.spend / insight.clicks) : 0;
+      const cpm = insight.impressions > 0 ? (insight.spend * 1000 / insight.impressions) : 0;
+      const frequency = insight.frequency_count > 0 ? (insight.frequency_sum / insight.frequency_count) : 0;
+
+      return {
+        ...insight,
+        ctr,
+        cpc,
+        cpm,
+        frequency,
+        data_grain: 'all_days',
+        sync_window_days: parseInt(days, 10) || config.ads.defaultDays
+      };
+    });
+  }
+
   async fetchAllAdsMetrics(days = config.ads.defaultDays, options = {}) {
     const includeDeepLevels = options.includeDeepLevels === true;
     const insightLevels = includeDeepLevels
@@ -135,15 +206,18 @@ class AdsFetcher {
 
       for (const level of insightLevels) {
         try {
-          const insights = await this.api.getInsights(accountId, {
+          const rawInsights = await this.api.getInsights(accountId, {
             level,
             days,
             timeIncrement: level === 'account' ? 1 : 'all_days'
           });
+          const insights = this.aggregateSnapshotInsights(rawInsights, level, days);
           insights.forEach(insight => {
             this.db.saveAdInsight({
               ad_account_id: accountId,
               level,
+              data_grain: insight.data_grain,
+              sync_window_days: insight.sync_window_days,
               account_id: insight.account_id || adAccount.account_id || accountId.replace(/^act_/, ''),
               account_name: insight.account_name || adAccount.name || '',
               campaign_id: insight.campaign_id && campaignIds.has(insight.campaign_id) ? insight.campaign_id : null,

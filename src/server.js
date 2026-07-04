@@ -503,12 +503,19 @@ class Server {
       const level = req.query.level || 'account';
       const campaignId = req.query.campaign_id || null;
 
-      const insights = this.db.getAdInsights({
-        adAccountId: id,
-        level,
-        days,
-        campaignId
-      });
+      const insights = level === 'account'
+        ? this.db.getAdInsights({
+            adAccountId: id,
+            level,
+            days,
+            campaignId
+          })
+        : this.db.getAdInsightsSummaryByLevel({
+            adAccountId: id,
+            level,
+            days,
+            campaignId
+          });
 
       const meta = insights.length === 0
         ? {
@@ -520,6 +527,7 @@ class Server {
           }
         : {
             supported: true,
+            dataShape: level === 'account' ? 'daily' : 'summary',
             level,
             days,
             adAccountId: id
@@ -970,19 +978,30 @@ class Server {
       const level = req.query.level || 'account';
       const campaignId = req.query.campaign_id || null;
 
-      const rows = this.db.getAdInsights({
-        adAccountId: id,
-        level,
-        days,
-        campaignId
-      });
+      const rows = level === 'account'
+        ? this.db.getAdInsights({
+            adAccountId: id,
+            level,
+            days,
+            campaignId
+          })
+        : this.db.getAdInsightsSummaryByLevel({
+            adAccountId: id,
+            level,
+            days,
+            campaignId
+          });
 
       const csv = toCsv([
-        ['ad_account_id', 'level', 'account_name', 'campaign_id', 'campaign_name', 'ad_set_id', 'ad_set_name', 'ad_id', 'ad_name', 'date_start', 'date_stop', 'impressions', 'reach', 'clicks', 'ctr', 'cpc', 'cpm', 'spend', 'frequency'],
+        ['ad_account_id', 'level', 'data_grain', 'sync_window_days', 'account_name', 'entity_id', 'entity_name', 'campaign_id', 'campaign_name', 'ad_set_id', 'ad_set_name', 'ad_id', 'ad_name', 'date_start', 'date_stop', 'impressions', 'reach', 'clicks', 'ctr', 'cpc', 'cpm', 'spend', 'frequency'],
         ...rows.map(row => [
-          row.ad_account_id,
-          row.level,
+          row.ad_account_id || id,
+          row.level || level,
+          row.data_grain || (level === 'account' ? 'daily' : 'all_days'),
+          row.sync_window_days || '',
           row.account_name || '',
+          row.entity_id || '',
+          row.entity_name || '',
           row.campaign_id || '',
           row.campaign_name || '',
           row.ad_set_id || '',
