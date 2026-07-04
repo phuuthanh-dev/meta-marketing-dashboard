@@ -165,6 +165,7 @@ module.exports = {
     auth: {
       username: process.env.APP_USERNAME || 'admin',
       password: process.env.APP_PASSWORD || '',
+      passwordHash: process.env.APP_PASSWORD_HASH || '',
       sessionSecret: process.env.SESSION_SECRET || 'change-me-in-env',
       cookieName: 'fb_metrics_session'
     }

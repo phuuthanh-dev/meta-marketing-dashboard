@@ -7,7 +7,7 @@ class MetricsFetcher {
     this.portfolio = portfolio;
     this.pageFilter = pageFilter; // Filter by page name (partial match)
     this.api = new FacebookAPI(portfolio.token);
-    this.db = new Database();
+    this.db = Database.getInstance();
   }
 
   async fetchAllMetrics() {

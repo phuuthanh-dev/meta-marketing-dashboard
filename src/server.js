@@ -2,6 +2,8 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
+const rateLimit = require('express-rate-limit');
 const Database = require('./database');
 const FacebookAPI = require('./facebook/api');
 const MetaAdsAPI = require('./meta-ads/api');
@@ -11,6 +13,15 @@ const InstagramFetcher = require('./instagram/fetcher');
 const config = require('./config');
 const WebSocket = require('ws');
 const PUBLIC_DIR = path.resolve(__dirname, '..', 'public');
+
+// Rate limiter: tối đa 10 lần thử login trong 15 phút
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { error: 'Too many login attempts. Please try again in 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
 
 function getRecentPosts(posts, days) {
   const daysNum = parseInt(days, 10) || 30;
@@ -137,7 +148,7 @@ function parseCookies(cookieHeader = '') {
 class Server {
   constructor() {
     this.app = express();
-    this.db = new Database();
+    this.db = Database.getInstance(); // Singleton — dùng chung 1 DB connection
     this.wsClients = new Set();
     this.sessions = new Map();
     this.setupRoutes();
@@ -261,14 +272,28 @@ class Server {
       res.type('html').send(fs.readFileSync(path.join(PUBLIC_DIR, 'login.html'), 'utf8'));
     });
 
-    this.app.post('/api/auth/login', (req, res) => {
+    this.app.post('/api/auth/login', loginLimiter, async (req, res) => {
       const { username, password } = req.body || {};
 
-      if (!config.security.auth.password) {
-        return res.status(500).json({ error: 'APP_PASSWORD is not configured in .env' });
+      if (!username || !password) {
+        return res.status(400).json({ error: 'Username and password are required' });
       }
 
-      if (username !== config.security.auth.username || password !== config.security.auth.password) {
+      // Hỗ trợ cả bcrypt hash (APP_PASSWORD_HASH) lẫn plain-text (APP_PASSWORD) để tương thích ngược
+      const isPasswordValid = await (async () => {
+        if (config.security.auth.passwordHash) {
+          // Bcrypt hash mode — an toàn hơn
+          return bcrypt.compare(password, config.security.auth.passwordHash);
+        }
+        // Plain-text fallback — vẫn hoạt động nhưng console.warn nhắc nhở
+        if (config.security.auth.password) {
+          console.warn('⚠️  [Security] APP_PASSWORD is plain-text. Set APP_PASSWORD_HASH for better security.');
+          return password === config.security.auth.password;
+        }
+        return false;
+      })();
+
+      if (username !== config.security.auth.username || !isPasswordValid) {
         return res.status(401).json({ error: 'Invalid username or password' });
       }
 

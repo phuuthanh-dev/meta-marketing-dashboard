@@ -6,7 +6,7 @@ class InstagramFetcher {
   constructor(portfolio) {
     this.portfolio = portfolio;
     this.api = new InstagramAPI(portfolio.token);
-    this.db = new Database();
+    this.db = Database.getInstance();
   }
 
   async fetchAllInstagramMetrics(days = config.instagram.defaultDays, options = {}) {

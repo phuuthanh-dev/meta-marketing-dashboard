@@ -1435,4 +1435,17 @@ class DB {
   }
 }
 
+// ─── Singleton ────────────────────────────────────────────────────────────────
+// Đảm bảo toàn bộ app dùng chung 1 DB connection duy nhất.
+// Thay vì `new Database()`, hãy dùng `Database.getInstance()`.
+let _dbInstance = null;
+
+DB.getInstance = function () {
+  if (!_dbInstance) {
+    _dbInstance = new DB();
+  }
+  return _dbInstance;
+};
+// ─────────────────────────────────────────────────────────────────────────────
+
 module.exports = DB;

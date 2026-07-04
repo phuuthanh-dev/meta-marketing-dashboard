@@ -6,7 +6,7 @@ class AdsFetcher {
   constructor(portfolio) {
     this.portfolio = portfolio;
     this.api = new MetaAdsAPI(portfolio.token);
-    this.db = new Database();
+    this.db = Database.getInstance();
   }
 
   aggregateSnapshotInsights(insights, level, days) {
