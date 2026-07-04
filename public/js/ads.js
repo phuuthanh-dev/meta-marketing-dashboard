@@ -51,9 +51,9 @@
     if (!box) return;
 
     if (!account) {
-      box.innerHTML = '<span class="ads-context-empty">Chua chon ad account.</span>';
+      box.innerHTML = '<span class="ads-context-empty">Chưa chọn ad account.</span>';
       if (help) {
-        help.textContent = 'Summary cards va 2 trend chart phia tren luon la account-level. Muc xem chi doi phan breakdown ben duoi: inventory, performance table va export CSV.';
+        help.textContent = 'Summary cards và 2 trend chart phía trên luôn là account-level. Mức xem chỉ đổi phần breakdown bên dưới: inventory, performance table và export CSV.';
       }
       return;
     }
@@ -63,7 +63,7 @@
       <span class="ads-context-pill"><strong>Portfolio:</strong> ${escapeHtml(account.portfolio || '-')}</span>
       <span class="ads-context-pill currency"><strong>Currency:</strong> ${escapeHtml(account.currency || 'USD')}</span>
       <span class="ads-context-pill"><strong>Timezone:</strong> ${escapeHtml(account.timezone_name || '-')}</span>
-      <span class="ads-context-pill scope"><strong>Scope:</strong> ${escapeHtml(level)} | ${escapeHtml(String(days))} ngay</span>
+      <span class="ads-context-pill scope"><strong>Scope:</strong> ${escapeHtml(level)} | ${escapeHtml(String(days))} ngày</span>
       ${Number(account.breakdown_rows || 0) === 0 && Number(account.account_daily_rows || 0) > 0
         ? '<span class="ads-context-pill" style="background:#fff1f0;border-color:#ffc4b8;color:#b42318;"><strong>Needs resync</strong></span>'
         : ''}
@@ -71,8 +71,8 @@
 
     if (help) {
       help.innerHTML = `
-        <strong>Account Summary:</strong> KPI cards va 2 trend chart phia tren luon tong hop theo toan ad account.<br>
-        <strong>Breakdown Level:</strong> Ban dang xem du lieu nhom theo <strong>${escapeHtml(level)}</strong> o inventory, performance table va export CSV.
+        <strong>Account Summary:</strong> KPI cards và 2 trend chart phía trên luôn tổng hợp theo toàn ad account.<br>
+        <strong>Breakdown Level:</strong> Bạn đang xem dữ liệu nhóm theo <strong>${escapeHtml(level)}</strong> ở inventory, performance table và export CSV.
       `;
     }
   }
@@ -116,7 +116,7 @@
       return {
         title: 'Ad Set Inventory',
         head: '<tr><th>Ad Set</th><th>Campaign ID</th><th>Status</th><th>Optimization</th><th>Billing Event</th><th>Budget</th></tr>',
-        empty: 'Chua co ad set trong local database cho ad account nay.'
+        empty: 'Chưa có ad set trong local database cho ad account này.'
       };
     }
 
@@ -124,14 +124,14 @@
       return {
         title: 'Ad Inventory',
         head: '<tr><th>Ad</th><th>Campaign ID</th><th>Ad Set ID</th><th>Status</th><th>Creative ID</th><th>Account</th></tr>',
-        empty: 'Chua co ad trong local database cho ad account nay.'
+        empty: 'Chưa có ad trong local database cho ad account này.'
       };
     }
 
     return {
       title: 'Campaign Inventory',
       head: '<tr><th>Campaign</th><th>Objective</th><th>Status</th><th>Buying Type</th><th>Start</th><th>Stop</th></tr>',
-      empty: 'Chua co campaign trong local database cho ad account nay.'
+      empty: 'Chưa có campaign trong local database cho ad account này.'
     };
   }
 
@@ -227,7 +227,7 @@
     if (!rows || rows.length === 0) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="9" class="empty-state">Chua co du lieu performance cho level dang chon.</td>
+          <td colspan="9" class="empty-state">Chưa có dữ liệu performance cho level đang chọn.</td>
         </tr>
       `;
       return;
@@ -336,7 +336,7 @@
     const accounts = payload.data || [];
 
     state.accounts = accounts;
-    select.innerHTML = '<option value="">-- Chon ad account --</option>' + accounts.map(account => `
+    select.innerHTML = '<option value="">-- Chọn ad account --</option>' + accounts.map(account => `
       <option value="${account.id}">${escapeHtml(account.name)} (${escapeHtml(account.portfolio || '-')})${Number(account.breakdown_rows || 0) === 0 && Number(account.account_daily_rows || 0) > 0 ? ' [Needs resync]' : ''}</option>
     `).join('');
 
@@ -381,7 +381,7 @@
       setSummaryCards(null);
       renderTrends([]);
       renderPerformanceTable([]);
-      setStatus('Chon ad account de xem du lieu Ads.', 'empty');
+      setStatus('Chọn ad account để xem dữ liệu Ads.', 'empty');
       return;
     }
 
@@ -411,23 +411,23 @@
     if (accountPayload.meta?.supported === false && summaryPayload.meta?.supported === false) {
       setStatus(`
         <strong>${escapeHtml(selectedAccount?.name || accountId)}</strong><br>
-        ${escapeHtml(summaryPayload.meta?.reason || accountPayload.meta?.reason || 'Khong co du lieu Ads.')}<br>
+        ${escapeHtml(summaryPayload.meta?.reason || accountPayload.meta?.reason || 'Không có dữ liệu Ads.')}<br>
         Goi y: thu <strong>Sync Ads</strong> voi moc 1095 ngay neu account co delivery cu.
       `, 'info');
       return;
     }
 
     setStatus(`
-      <span class="success">Da tai du lieu Ads cho ${escapeHtml(selectedAccount?.name || accountId)}.</span><br>
-      ${state.accountInsights.length} dong daily account insight, ${state.performanceRows.length} dong tong hop theo ${escapeHtml(level)}, ${inventoryCount} row inventory.
-      ${Number(selectedAccount?.breakdown_rows || 0) === 0 && Number(selectedAccount?.account_daily_rows || 0) > 0 ? '<br><strong>Luu y:</strong> Account nay dang co account-level data nhung chua co breakdown moi. Can bam <strong>Sync Ads</strong> de nap lai campaign/ad set/ad.' : ''}
-      ${needsDeepSync ? '<br>Level nay can deep sync. Bam <strong>Sync Ads</strong> khi dang o muc xem nay de nap them ad set / ad insights.' : ''}
+      <span class="success">Đã tải dữ liệu Ads cho ${escapeHtml(selectedAccount?.name || accountId)}.</span><br>
+      ${state.accountInsights.length} dòng daily account insight, ${state.performanceRows.length} dòng tổng hợp theo ${escapeHtml(level)}, ${inventoryCount} row inventory.
+      ${Number(selectedAccount?.breakdown_rows || 0) === 0 && Number(selectedAccount?.account_daily_rows || 0) > 0 ? '<br><strong>Lưu ý:</strong> Account này đang có account-level data nhưng chưa có breakdown mới. Cần bấm <strong>Sync Ads</strong> để nạp lại campaign/ad set/ad.' : ''}
+      ${needsDeepSync ? '<br>Level này cần deep sync. Bấm <strong>Sync Ads</strong> khi đang ở mức xem này để nạp thêm ad set / ad insights.' : ''}
     `);
   }
 
   async function refreshAdsView() {
     try {
-      setStatus('<div class="loading">Dang tai Ads...</div>');
+      setStatus('<div class="loading">Đang tải Ads...</div>');
       state.selectedAccountId = getSelectedAccountId();
       state.selectedLevel = getSelectedLevel();
       await loadInventory();
@@ -443,9 +443,9 @@
     const includeDeepLevels = state.selectedLevel === 'adset' || state.selectedLevel === 'ad';
 
     try {
-      setStatus('<div class="loading">Dang sync Ads tu Meta...</div>');
+      setStatus('<div class="loading">Đang sync Ads từ Meta...</div>');
       if (!accountId) {
-        throw new Error('Chon ad account truoc khi sync Ads');
+        throw new Error('Chọn ad account trước khi sync Ads');
       }
 
       const response = await fetch(`/api/ads/accounts/${accountId}/sync`, {
@@ -461,7 +461,7 @@
 
       setStatus(`
         <span class="success">Da sync Ads xong.</span><br>
-        Ad account da duoc dong bo cho cua so ${days} ngay${includeDeepLevels ? ' va co nap deep levels' : ''}.
+        Ad account đã được đồng bộ cho cửa sổ ${days} ngày${includeDeepLevels ? ' và có nạp deep levels' : ''}.
       `);
 
       const syncedAccountId = accountId;
@@ -482,7 +482,7 @@
     const level = state.selectedLevel;
 
     if (!accountId) {
-      setStatus('<span class="error">Chon ad account truoc khi export CSV.</span>');
+      setStatus('<span class="error">Chọn ad account trước khi export CSV.</span>');
       return;
     }
 

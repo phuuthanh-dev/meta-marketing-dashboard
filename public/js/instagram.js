@@ -43,7 +43,7 @@
     if (!box) return;
 
     if (!account) {
-      box.innerHTML = '<span class="ads-context-empty">Chua chon Instagram account.</span>';
+      box.innerHTML = '<span class="ads-context-empty">Chưa chọn Instagram account.</span>';
       return;
     }
 
@@ -52,7 +52,7 @@
       <span class="ads-context-pill"><strong>Page:</strong> ${escapeHtml(account.page_name || '-')}</span>
       <span class="ads-context-pill"><strong>Portfolio:</strong> ${escapeHtml(account.portfolio || '-')}</span>
       <span class="ads-context-pill"><strong>Followers:</strong> ${formatNumber(account.followers_count || 0)}</span>
-      <span class="ads-context-pill scope"><strong>Scope:</strong> ${escapeHtml(String(days))} ngay</span>
+      <span class="ads-context-pill scope"><strong>Scope:</strong> ${escapeHtml(String(days))} ngày</span>
     `;
   }
 
@@ -155,7 +155,7 @@
     if (!filteredMedia || filteredMedia.length === 0) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="11" class="empty-state">Chua co media inventory cho Instagram account nay.</td>
+          <td colspan="11" class="empty-state">Chưa có media inventory cho Instagram account này.</td>
         </tr>
       `;
       return;
@@ -195,7 +195,7 @@
     const payload = await response.json();
     state.accounts = payload.data || [];
 
-    select.innerHTML = '<option value="">-- Chon Instagram account --</option>' + state.accounts.map(account => {
+    select.innerHTML = '<option value="">-- Chọn Instagram account --</option>' + state.accounts.map(account => {
       const label = `${account.username || account.id} - ${formatNumber(account.followers_count || 0)} followers (${account.portfolio || '-'})`;
       return `<option value="${account.id}">${escapeHtml(label)}</option>`;
     }).join('');
@@ -216,7 +216,7 @@
       renderInsightsCharts([]);
       renderMediaTable([]);
       renderDemographics(null, []);
-      setStatus('Chon Instagram account de xem du lieu.', 'empty');
+      setStatus('Chọn Instagram account để xem dữ liệu.', 'empty');
       return;
     }
 
@@ -255,15 +255,15 @@
     if (insightsPayload.meta?.supported === false) {
       setStatus(`
         <strong>${escapeHtml(account?.username || accountId)}</strong><br>
-        ${escapeHtml(insightsPayload.meta.reason || 'Chua co Instagram snapshots cho account nay.')}<br>
-        Goi y: bam <strong>Sync Instagram</strong> de dong bo account dang chon.
+        ${escapeHtml(insightsPayload.meta.reason || 'Chưa có Instagram snapshots cho account này.')}<br>
+        Gợi ý: bấm <strong>Sync Instagram</strong> để đồng bộ account đang chọn.
       `, 'info');
       return;
     }
 
     setStatus(`
-      <span class="success">Da tai du lieu Instagram cho ${escapeHtml(account?.username || accountId)}.</span><br>
-      ${state.insights.length} snapshot insight, ${state.media.length} media item va ${state.demographicsSummary.length} demographics group.
+      <span class="success">Đã tải dữ liệu Instagram cho ${escapeHtml(account?.username || accountId)}.</span><br>
+      ${state.insights.length} snapshot insight, ${state.media.length} media item và ${state.demographicsSummary.length} demographics group.
     `);
   }
 
@@ -276,7 +276,7 @@
     const days = getSelectedDays();
 
     if (!accountId) {
-      setStatus('<span class="error">Chon Instagram account truoc khi export.</span>');
+      setStatus('<span class="error">Chọn Instagram account trước khi export.</span>');
       return;
     }
 
@@ -285,7 +285,7 @@
 
   async function refreshInstagramView() {
     try {
-      setStatus('<div class="loading">Dang tai Instagram...</div>');
+      setStatus('<div class="loading">Đang tải Instagram...</div>');
       state.selectedAccountId = getSelectedAccountId();
       await loadSelectedAccountData();
     } catch (error) {
@@ -299,10 +299,10 @@
 
     try {
       if (!accountId) {
-        throw new Error('Chon Instagram account truoc khi sync');
+        throw new Error('Chọn Instagram account trước khi sync');
       }
 
-      setStatus('<div class="loading">Dang sync Instagram tu Meta...</div>');
+      setStatus('<div class="loading">Đang sync Instagram từ Meta...</div>');
       const response = await fetch(`/api/instagram/accounts/${accountId}/sync`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -327,7 +327,7 @@
     const days = getSelectedDays();
 
     try {
-      setStatus('<div class="loading">Dang sync tat ca Instagram accounts tu Meta...</div>');
+      setStatus('<div class="loading">Đang sync tất cả Instagram accounts từ Meta...</div>');
       const response = await fetch('/api/instagram/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
