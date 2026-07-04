@@ -30,20 +30,47 @@ class App {
   }
 
   setupTabs() {
+    // Main Tabs (Level 1)
     const tabs = document.querySelectorAll('.tab');
     tabs.forEach(tab => {
       tab.addEventListener('click', () => {
         const targetTab = tab.dataset.tab;
         
-        // Update active tab
+        // Update active main tab
         tabs.forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
         
-        // Update active content
+        // Update active main content
         document.querySelectorAll('.tab-content').forEach(content => {
           content.classList.remove('active');
         });
-        document.getElementById(`${targetTab}-tab`).classList.add('active');
+        const targetContent = document.getElementById(`${targetTab}-tab`);
+        if (targetContent) targetContent.classList.add('active');
+      });
+    });
+
+    // Sub Tabs (Level 2)
+    const subTabs = document.querySelectorAll('.sub-tab');
+    subTabs.forEach(subTab => {
+      subTab.addEventListener('click', () => {
+        const targetSubTab = subTab.dataset.subtab;
+        
+        // Update active sub-tab buttons within the same nav
+        const parentNav = subTab.closest('.sub-tabs');
+        if (parentNav) {
+          parentNav.querySelectorAll('.sub-tab').forEach(t => t.classList.remove('active'));
+          subTab.classList.add('active');
+        }
+        
+        // Update active sub-content within the same parent tab-content
+        const parentContent = subTab.closest('.tab-content');
+        if (parentContent) {
+          parentContent.querySelectorAll('.sub-tab-content').forEach(content => {
+            content.classList.remove('active');
+          });
+          const targetContent = document.getElementById(`${targetSubTab}-tab`);
+          if (targetContent) targetContent.classList.add('active');
+        }
       });
     });
   }

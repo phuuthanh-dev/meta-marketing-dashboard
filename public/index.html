@@ -70,28 +70,27 @@
     <!-- Tabs -->
     <section class="tabs-section">
       <div class="card">
-        <nav class="tabs">
-          <!-- Main Dashboards -->
-          <button class="tab active" data-tab="overview">&#x1F4CA; Overview</button>
-          <button class="tab" data-tab="analytics">&#x1F4C8; Analytics</button>
-          
-          <!-- Content & Interactions -->
-          <button class="tab" data-tab="posts">&#x1F4DD; Posts</button>
-          <button class="tab" data-tab="media">&#x1F4F8; Media</button>
-          <button class="tab" data-tab="comments">&#x1F4AC; Comments</button>
-          <button class="tab" data-tab="messages">&#x1F4E8; Inbox</button>
-          
-          <!-- Cross-Platform -->
-          <button class="tab" data-tab="ads">&#x1F4B0; Meta Ads</button>
+                <nav class="tabs">
+          <button class="tab active" data-tab="facebook">&#x1F4D8; Facebook</button>
           <button class="tab" data-tab="instagram">&#x1F4F7; Instagram</button>
-          
-          <!-- Management -->
+          <button class="tab" data-tab="ads">&#x1F4B0; Meta Ads</button>
           <button class="tab" data-tab="automation">&#x1F916; Automation</button>
-          <button class="tab" data-tab="page-management">&#x2699;&#xFE0F; Settings</button>
         </nav>
 
-        <!-- Overview Tab -->
-        <div class="tab-content active" id="overview-tab">
+        <!-- Facebook Main Tab -->
+        <div class="tab-content active" id="facebook-tab">
+          <nav class="sub-tabs">
+            <button class="sub-tab active" data-subtab="overview">Overview</button>
+            <button class="sub-tab" data-subtab="analytics">Analytics</button>
+            <button class="sub-tab" data-subtab="posts">Posts</button>
+            <button class="sub-tab" data-subtab="media">Media</button>
+            <button class="sub-tab" data-subtab="comments">Comments</button>
+            <button class="sub-tab" data-subtab="messages">Inbox</button>
+            <button class="sub-tab" data-subtab="page-management">Settings</button>
+          </nav>
+
+          <!-- Overview Sub-Tab -->
+          <div class="sub-tab-content active" id="overview-tab">
           <div class="section-header">
             <h2>Facebook Organic Overview</h2>
             <p class="section-description">Tổng quan hiệu suất organic của Facebook Page</p>
@@ -130,7 +129,7 @@
         </div>
 
         <!-- Posts Tab -->
-        <div class="tab-content" id="posts-tab">
+        <div class="sub-tab-content" id="posts-tab">
           <div class="section-header">
             <h2>Facebook Post Operations</h2>
             <p class="section-description">Tạo, lên lịch và quản lý bài đăng</p>
@@ -178,7 +177,7 @@
         </div>
 
         <!-- Comments Tab -->
-        <div class="tab-content" id="comments-tab">
+        <div class="sub-tab-content" id="comments-tab">
           <div class="section-header">
             <h2>Facebook Comment Operations</h2>
             <p class="section-description">Quản lý bình luận từ các bài đăng</p>
@@ -218,7 +217,7 @@
         </div>
 
         <!-- Audience Tab -->
-        <div class="tab-content" id="audience-tab">
+        <div class="sub-tab-content" id="audience-tab">
           <div class="section-header">
             <h2>Facebook Audience Insights</h2>
             <p class="section-description">Khu vực này được khóa an toàn vì Facebook Page API hiện tại không còn trả ổn định demographics và reach metrics mà dashboard cũ từng dùng</p>
@@ -255,7 +254,7 @@
         </div>
 
         <!-- Messages Tab -->
-        <div class="tab-content" id="messages-tab">
+        <div class="sub-tab-content" id="messages-tab">
           <div class="section-header">
             <h2>Inbox &amp; Messages</h2>
             <p class="section-description">Quản lý tin nhắn và thông báo</p>
@@ -298,7 +297,7 @@
         </div>
 
         <!-- Media Tab -->
-        <div class="tab-content" id="media-tab">
+        <div class="sub-tab-content" id="media-tab">
           <div class="section-header">
             <h2>Media Management</h2>
             <p class="section-description">Quản lý ảnh, video và albums</p>
@@ -362,7 +361,7 @@
         </div>
 
         <!-- Page Management Tab -->
-        <div class="tab-content" id="page-management-tab">
+        <div class="sub-tab-content" id="page-management-tab">
           <div class="section-header">
             <h2>Facebook Page Operations</h2>
             <p class="section-description">Quản lý thông tin và cài đặt cho Facebook Page</p>
@@ -397,7 +396,7 @@
         </div>
 
         <!-- Analytics Tab -->
-        <div class="tab-content" id="analytics-tab">
+        <div class="sub-tab-content" id="analytics-tab">
           <div class="section-header">
             <h2>Facebook Organic Analytics</h2>
             <p class="section-description">Phân tích nâng cao cho hiệu suất organic của Facebook Page</p>
@@ -536,6 +535,8 @@
             <div class="chart-wrapper" style="height: 300px;"><canvas id="periodComparisonChart"></canvas></div>
           </div>
         </div>
+
+        </div> <!-- end facebook-tab -->
 
         <!-- Ads Tab -->
         <div class="tab-content" id="ads-tab">
@@ -882,9 +883,9 @@
     document.addEventListener('DOMContentLoaded', () => {
       const tabInitMap = {}; // track tab nào đã được init
 
-      document.querySelectorAll('.tab').forEach(tab => {
+      document.querySelectorAll('.tab, .sub-tab').forEach(tab => {
         tab.addEventListener('click', () => {
-          const name = tab.dataset.tab;
+          const name = tab.dataset.tab || tab.dataset.subtab;
           if (tabInitMap[name]) return; // đã init rồi, bỏ qua
           tabInitMap[name] = true;
 
