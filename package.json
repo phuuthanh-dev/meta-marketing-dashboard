@@ -4,8 +4,9 @@
   "description": "Meta Marketing Dashboard — Facebook Organic, Ads & Instagram reporting in one place",
   "main": "src/index.js",
   "scripts": {
-    "start": "node src/index.js",
-    "dev": "nodemon src/index.js",
+    "start": "node scripts/build-frontend.js && node src/index.js",
+    "dev": "node scripts/build-frontend.js && nodemon src/index.js",
+    "build": "node scripts/build-frontend.js",
     "fetch": "node src/fetch-now.js",
     "smoke": "node test/test-smoke.js",
     "spike": "node test/spike-test.js"
@@ -28,6 +29,7 @@
     "axios": "^1.18.1",
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.11.1",
+    "chart.js": "^4.5.1",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "express-rate-limit": "^8.5.2",
@@ -35,6 +37,7 @@
     "ws": "^8.21.0"
   },
   "devDependencies": {
+    "esbuild": "^0.28.1",
     "nodemon": "^3.1.14"
   }
 }

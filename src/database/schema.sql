@@ -1,3 +1,11 @@
+-- ============================================================
+-- DEPRECATED — File này KHÔNG còn được dùng để khởi tạo DB.
+-- Schema thực tế được quản lý trong: src/database.js :: init()
+--
+-- File này chỉ còn là tài liệu tham khảo schema ban đầu.
+-- Mọi thay đổi schema PHẢI thực hiện trong database.js, không phải ở đây.
+-- ============================================================
+
 -- Pages table
 CREATE TABLE IF NOT EXISTS pages (
   id TEXT PRIMARY KEY,

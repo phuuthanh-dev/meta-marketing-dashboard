@@ -33,9 +33,11 @@ desktop.ini
 spike-test-results.json
 coverage/
 
-# Build
+# Build output (generated — chạy `npm run build` để tạo lại)
 dist/
 build/
+public/dist/
+public/js/vendor/
 
 # Temp
 tmp/

@@ -3,21 +3,25 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Organic, Ads & Instagram Dashboard - Phase 3</title>
+  <meta name="description" content="Meta Marketing Dashboard — Facebook Organic, Ads &amp; Instagram reporting in one place.">
+  <title>Meta Marketing Dashboard — FB Organic, Ads &amp; Instagram</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <!-- Chart.js: local copy, no CDN dependency -->
+  <script src="/js/vendor/chart.min.js" defer></script>
+  <!-- All app JS: 10 files bundled + minified into 1 (39% smaller) -->
+  <script src="/dist/bundle.min.js" defer></script>
 </head>
 <body>
   <header class="header">
     <div class="header-content">
       <div class="logo">
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
           <path d="M12 2C6.477 2 2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.879V14.89h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.989C18.343 21.129 22 16.99 22 12c0-5.523-4.477-10-10-10z" fill="currentColor"/>
         </svg>
-        <h1>Marketing Reporting Dashboard <span class="badge">Phase 3</span></h1>
+        <h1>Meta Marketing <span class="badge">Dashboard</span></h1>
       </div>
       <div class="header-info">
         <span class="ws-status" id="appModeBadge">Mode: -</span>
@@ -866,15 +870,27 @@
     <p>Marketing Reporting Dashboard - Facebook Organic, Ads, Instagram • Phase 3</p>
   </footer>
 
-  <script src="/js/api.js"></script>
-  <script src="/js/charts.js"></script>
-  <script src="/js/app.js"></script>
-  <script src="/js/phase1.js"></script>
-  <script src="/js/phase2.js"></script>
-  <script src="/js/phase3.js"></script>
-  <script src="/js/phase3-charts.js"></script>
-  <script src="/js/additional-charts.js"></script>
-  <script src="/js/ads.js"></script>
-  <script src="/js/instagram.js"></script>
+  <!-- S4-A: Lazy chart rendering — chỉ render chart khi tab được click lần đầu -->
+  <script>
+    // Ghi đè setupTabs sau khi bundle load xong
+    document.addEventListener('DOMContentLoaded', () => {
+      const tabInitMap = {}; // track tab nào đã được init
+
+      document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          const name = tab.dataset.tab;
+          if (tabInitMap[name]) return; // đã init rồi, bỏ qua
+          tabInitMap[name] = true;
+
+          // Trigger lazy init cho từng module
+          try {
+            if (name === 'analytics' && window.phase3Charts) window.phase3Charts.init();
+            if (name === 'ads' && window.adsModule) window.adsModule.lazyInit();
+            if (name === 'instagram' && window.instagramModule) window.instagramModule.lazyInit();
+          } catch(e) { /* module chưa expose lazy init — bỏ qua */ }
+        });
+      });
+    });
+  </script>
 </body>
 </html>

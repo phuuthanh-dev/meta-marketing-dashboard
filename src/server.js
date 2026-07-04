@@ -361,7 +361,22 @@ class Server {
     });
 
     // Serve static files
-    this.app.use(express.static(PUBLIC_DIR));
+    // ── Cache headers: JS/CSS/vendor assets → 7 ngày, HTML → không cache ──
+    this.app.use('/dist', express.static(path.join(PUBLIC_DIR, 'dist'), {
+      maxAge: '7d',
+      immutable: true,
+      etag: true
+    }));
+    this.app.use('/js/vendor', express.static(path.join(PUBLIC_DIR, 'js', 'vendor'), {
+      maxAge: '30d',
+      immutable: true,
+      etag: true
+    }));
+    this.app.use('/css', express.static(path.join(PUBLIC_DIR, 'css'), {
+      maxAge: '1d',
+      etag: true
+    }));
+    this.app.use(express.static(PUBLIC_DIR, { etag: true }));
     
     // Get all pages
     this.app.get('/api/pages', (req, res) => {
