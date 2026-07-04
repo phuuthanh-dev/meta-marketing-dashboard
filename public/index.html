@@ -8,11 +8,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/style.css?v=2">
+  <link rel="stylesheet" href="/css/style.css?v=3">
   <!-- Chart.js: local copy, no CDN dependency -->
   <script src="/js/vendor/chart.min.js" defer></script>
   <!-- All app JS: 10 files bundled + minified into 1 (39% smaller) -->
-  <script src="/dist/bundle.min.js?v=2" defer></script>
+  <script src="/dist/bundle.min.js?v=3" defer></script>
 </head>
 <body>
   <header class="header">
@@ -699,6 +699,8 @@
             <div class="ads-context-bar" id="instagramContextBar">
               <span class="ads-context-empty">Chưa chọn Instagram account.</span>
             </div>
+            <div id="instagramSupportBox" class="info-box" style="margin-top: 12px;">Instagram account-level, media insights và demographics sẽ được hiện theo khả năng Meta trả dữ liệu cho từng account.</div>
+            <div id="instagramCoverageBox" class="info-box" style="margin-top: 12px;">Coverage sẽ hiện sau khi tải dữ liệu Instagram.</div>
             <div id="instagramStatusBox" class="result-box">Tab Instagram sẵn sàng. Hãy chọn account hoặc bấm refresh.</div>
           </div>
 
@@ -741,16 +743,24 @@
           </div>
 
           <div class="charts-grid">
-            <div class="chart-card large">
-              <h3 class="chart-title">Instagram Reach Trend <span class="chart-badge chart-badge-local">Snapshot DB</span></h3>
+            <div class="chart-card large" id="instagramReachTrendCard">
+              <h3 class="chart-title">Instagram Reach Trend <span class="chart-badge chart-badge-local" id="instagramReachTrendBadge">Snapshot DB</span></h3>
               <div class="chart-wrapper"><canvas id="instagramReachTrendChart"></canvas></div>
             </div>
-            <div class="chart-card">
-              <h3 class="chart-title">Top Media Ranking <span class="chart-badge chart-badge-local">Local DB</span></h3>
+            <div class="chart-card large" id="instagramAccountTrendCard">
+              <h3 class="chart-title">Account Performance Trend <span class="chart-badge chart-badge-local" id="instagramAccountTrendBadge">Snapshot DB</span></h3>
+              <div class="chart-wrapper"><canvas id="instagramAccountTrendChart"></canvas></div>
+            </div>
+            <div class="chart-card" id="instagramTopMediaCard">
+              <h3 class="chart-title">Top Media Ranking <span class="chart-badge chart-badge-local" id="instagramTopMediaBadge">Local DB</span></h3>
               <div class="chart-wrapper"><canvas id="instagramTopMediaChart"></canvas></div>
             </div>
-            <div class="chart-card">
-              <h3 class="chart-title">Audience Demographics <span class="chart-badge chart-badge-live">Live Meta</span></h3>
+            <div class="chart-card" id="instagramMediaFormatCard">
+              <h3 class="chart-title">Media Format Mix <span class="chart-badge chart-badge-local" id="instagramMediaFormatBadge">Local DB</span></h3>
+              <div class="chart-wrapper"><canvas id="instagramMediaFormatChart"></canvas></div>
+            </div>
+            <div class="chart-card" id="instagramDemographicsCard">
+              <h3 class="chart-title">Audience Demographics <span class="chart-badge chart-badge-live" id="instagramDemographicsBadge">Live Meta</span></h3>
               <div id="instagramDemographicsBox" class="list-box">Chọn account để xem demographics snapshot</div>
             </div>
           </div>
@@ -769,10 +779,22 @@
                 <option value="CAROUSEL_ALBUM">Carousel</option>
               </select>
             </div>
+            <div class="form-group">
+              <label>Top Media Metric:</label>
+              <select id="instagramRankingMetricSelect">
+                <option value="total_interactions" selected>Total Interactions</option>
+                <option value="engagement_rate">Engagement Rate</option>
+                <option value="reach">Reach</option>
+                <option value="impressions">Impressions</option>
+                <option value="views">Views</option>
+                <option value="saves">Saves</option>
+                <option value="shares">Shares</option>
+              </select>
+            </div>
             <div class="table-wrapper">
               <table class="data-table" id="instagramMediaTable">
                 <thead>
-                  <tr><th>Media</th><th>Type</th><th>Published</th><th>Likes</th><th>Comments</th><th>Reach</th><th>Views</th><th>Saves</th><th>Shares</th><th>Interactions</th><th>Insights</th></tr>
+                  <tr><th>Media</th><th>Type</th><th>Published</th><th>Likes</th><th>Comments</th><th>Reach</th><th>Views</th><th>Saves</th><th>Shares</th><th>Interactions</th><th>ER</th><th>Insights</th></tr>
                 </thead>
                 <tbody></tbody>
               </table>

@@ -412,7 +412,7 @@
       setStatus(`
         <strong>${escapeHtml(selectedAccount?.name || accountId)}</strong><br>
         ${escapeHtml(summaryPayload.meta?.reason || accountPayload.meta?.reason || 'Không có dữ liệu Ads.')}<br>
-        Goi y: thu <strong>Sync Ads</strong> voi moc 1095 ngay neu account co delivery cu.
+        Gợi ý: thử <strong>Sync Ads</strong> với mốc 1095 ngày nếu account có delivery cũ.
       `, 'info');
       return;
     }
@@ -460,7 +460,7 @@
       }
 
       setStatus(`
-        <span class="success">Da sync Ads xong.</span><br>
+        <span class="success">Đã sync Ads xong.</span><br>
         Ad account đã được đồng bộ cho cửa sổ ${days} ngày${includeDeepLevels ? ' và có nạp deep levels' : ''}.
       `);
 
