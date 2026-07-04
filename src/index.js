@@ -2,24 +2,22 @@
 
 const Server = require('./server');
 const Scheduler = require('./scheduler');
+const config = require('./config');
 
-console.log('🚀 Facebook Metrics Dashboard Starting...\n');
+console.log('Marketing Reporting Dashboard starting...\n');
 
-// Start API server
 const server = new Server();
-server.start(3000);
+server.start(config.server.port, config.server.host);
 
-// Start scheduler
 const scheduler = new Scheduler();
 scheduler.start();
 
-// Handle graceful shutdown
 process.on('SIGINT', () => {
-  console.log('\n\n👋 Shutting down gracefully...');
+  console.log('\n\nShutting down gracefully...');
   process.exit(0);
 });
 
 process.on('SIGTERM', () => {
-  console.log('\n\n👋 Shutting down gracefully...');
+  console.log('\n\nShutting down gracefully...');
   process.exit(0);
 });

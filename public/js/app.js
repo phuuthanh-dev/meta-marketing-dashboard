@@ -2,6 +2,7 @@
 class App {
   constructor() {
     this.data = {
+      appState: null,
       summary: null,
       pages: [],
       aggregated: null
@@ -11,8 +12,21 @@ class App {
 
   async init() {
     this.setupTabs();
+    await this.loadAppState();
+    this.setupLogout();
     await this.loadData();
     this.render();
+  }
+
+  async loadAppState() {
+    try {
+      const response = await fetch('/api/app-state');
+      const payload = await response.json();
+      this.data.appState = payload.data || null;
+      this.renderAppState();
+    } catch (error) {
+      console.error('Error loading app state:', error);
+    }
   }
 
   setupTabs() {
@@ -106,10 +120,53 @@ class App {
   }
 
   render() {
+    this.renderAppState();
     this.renderSummary();
     this.renderPagesTable();
     this.renderCharts();
     this.renderReactionsStats();
+  }
+
+  renderAppState() {
+    const appState = this.data.appState || {};
+    const modeBadge = document.getElementById('appModeBadge');
+    const logoutBtn = document.getElementById('logoutBtn');
+
+    if (modeBadge) {
+      const username = appState.username ? ` | ${appState.username}` : '';
+      modeBadge.textContent = appState.readOnly ? `READ ONLY${username}` : `OPERATOR${username}`;
+    }
+
+    if (logoutBtn) {
+      logoutBtn.style.display = 'inline-flex';
+    }
+
+    if (appState.readOnly) {
+      ['posts', 'comments', 'messages', 'media', 'page-management', 'automation'].forEach(tabName => {
+        const tab = document.querySelector(`.tab[data-tab="${tabName}"]`);
+        const content = document.getElementById(`${tabName}-tab`);
+        if (tab) tab.style.display = 'none';
+        if (content) content.style.display = 'none';
+      });
+    }
+  }
+
+  setupLogout() {
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (!logoutBtn) return;
+
+    logoutBtn.addEventListener('click', async () => {
+      try {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } catch (error) {
+        console.error('Logout failed:', error);
+      }
+
+      window.location.href = '/login';
+    });
   }
 
   renderSummary() {

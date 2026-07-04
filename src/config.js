@@ -158,6 +158,18 @@ module.exports = {
     host: process.env.HOST || 'localhost'
   },
 
+  security: {
+    enableScheduler: process.env.ENABLE_SCHEDULER === 'true',
+    enableStartupFetch: process.env.ENABLE_STARTUP_FETCH === 'true',
+    readOnly: process.env.READ_ONLY !== 'false',
+    auth: {
+      username: process.env.APP_USERNAME || 'admin',
+      password: process.env.APP_PASSWORD || '',
+      sessionSecret: process.env.SESSION_SECRET || 'change-me-in-env',
+      cookieName: 'fb_metrics_session'
+    }
+  },
+
   schedule: {
     daily: '0 6 * * *'
   }

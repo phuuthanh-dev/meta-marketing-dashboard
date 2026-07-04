@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - Marketing Reporting Dashboard</title>
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      font-family: Roboto, Arial, sans-serif;
+      background: linear-gradient(135deg, #0f172a, #1e293b 55%, #334155);
+      color: #e2e8f0;
+    }
+
+    .login-card {
+      width: min(420px, calc(100vw - 32px));
+      padding: 28px;
+      border-radius: 18px;
+      background: rgba(15, 23, 42, 0.92);
+      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.35);
+      border: 1px solid rgba(148, 163, 184, 0.18);
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: 28px;
+    }
+
+    p {
+      margin: 0 0 18px;
+      color: #cbd5e1;
+      line-height: 1.5;
+    }
+
+    label {
+      display: block;
+      margin: 14px 0 6px;
+      font-weight: 600;
+    }
+
+    input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: 1px solid #475569;
+      background: #0f172a;
+      color: #f8fafc;
+    }
+
+    button {
+      width: 100%;
+      margin-top: 18px;
+      padding: 12px 14px;
+      border: 0;
+      border-radius: 10px;
+      background: #2563eb;
+      color: white;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .error {
+      min-height: 20px;
+      margin-top: 12px;
+      color: #fca5a5;
+      font-size: 14px;
+    }
+
+    .note {
+      margin-top: 14px;
+      font-size: 13px;
+      color: #94a3b8;
+    }
+  </style>
+</head>
+<body>
+  <form class="login-card" id="loginForm">
+    <h1>Internal Login</h1>
+    <p>Dang nhap de vao dashboard reporting noi bo.</p>
+
+    <label for="username">Username</label>
+    <input id="username" name="username" type="text" autocomplete="username" required>
+
+    <label for="password">Password</label>
+    <input id="password" name="password" type="password" autocomplete="current-password" required>
+
+    <button type="submit">Dang nhap</button>
+    <div class="error" id="errorBox"></div>
+    <div class="note">Tai khoan dang nhap duoc cau hinh bang `.env` tren server.</div>
+  </form>
+
+  <script>
+    document.getElementById('loginForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      const errorBox = document.getElementById('errorBox');
+      errorBox.textContent = '';
+
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+
+      try {
+        const response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+
+        const payload = await response.json();
+        if (!response.ok || payload.error) {
+          throw new Error(payload.error || `HTTP ${response.status}`);
+        }
+
+        window.location.href = '/';
+      } catch (error) {
+        errorBox.textContent = error.message || 'Dang nhap that bai';
+      }
+    });
+  </script>
+</body>
+</html>

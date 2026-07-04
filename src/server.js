@@ -1,5 +1,7 @@
 const express = require('express');
+const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const Database = require('./database');
 const FacebookAPI = require('./facebook/api');
 const MetaAdsAPI = require('./meta-ads/api');
@@ -8,6 +10,7 @@ const InstagramAPI = require('./instagram/api');
 const InstagramFetcher = require('./instagram/fetcher');
 const config = require('./config');
 const WebSocket = require('ws');
+const PUBLIC_DIR = path.resolve(__dirname, '..', 'public');
 
 function getRecentPosts(posts, days) {
   const daysNum = parseInt(days, 10) || 30;
@@ -122,18 +125,104 @@ function normalizeDays(value, fallback = 30) {
   return parseInt(value, 10) || fallback;
 }
 
+function parseCookies(cookieHeader = '') {
+  return cookieHeader.split(';').reduce((acc, part) => {
+    const [key, ...rest] = part.trim().split('=');
+    if (!key) return acc;
+    acc[key] = decodeURIComponent(rest.join('=') || '');
+    return acc;
+  }, {});
+}
+
 class Server {
   constructor() {
     this.app = express();
     this.db = new Database();
     this.wsClients = new Set();
+    this.sessions = new Map();
     this.setupRoutes();
+  }
+
+  createSession(username) {
+    const token = crypto
+      .createHmac('sha256', config.security.auth.sessionSecret)
+      .update(`${username}:${Date.now()}:${crypto.randomBytes(16).toString('hex')}`)
+      .digest('hex');
+
+    this.sessions.set(token, {
+      username,
+      createdAt: new Date().toISOString()
+    });
+
+    return token;
+  }
+
+  getSessionFromRequest(req) {
+    const cookies = parseCookies(req.headers.cookie || '');
+    const token = cookies[config.security.auth.cookieName];
+    return token ? this.sessions.get(token) || null : null;
+  }
+
+  clearSession(req, res) {
+    const cookies = parseCookies(req.headers.cookie || '');
+    const token = cookies[config.security.auth.cookieName];
+    if (token) {
+      this.sessions.delete(token);
+    }
+
+    res.setHeader('Set-Cookie', `${config.security.auth.cookieName}=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax`);
+  }
+
+  setSessionCookie(res, token) {
+    res.setHeader('Set-Cookie', `${config.security.auth.cookieName}=${token}; HttpOnly; Path=/; SameSite=Lax`);
+  }
+
+  isAuthenticated(req) {
+    return Boolean(this.getSessionFromRequest(req));
+  }
+
+  isReadOnlyBlockedRoute(req) {
+    if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') {
+      return false;
+    }
+
+    if (req.path === '/api/auth/login' || req.path === '/api/auth/logout') {
+      return false;
+    }
+
+    if (req.path === '/api/ads/sync' || req.path === '/api/instagram/sync') {
+      return false;
+    }
+
+    if (/^\/api\/ads\/accounts\/[^/]+\/sync$/.test(req.path)) {
+      return false;
+    }
+
+    if (/^\/api\/instagram\/accounts\/[^/]+\/sync$/.test(req.path)) {
+      return false;
+    }
+
+    return [
+      /^\/api\/pages\/[^/]+\/posts(?:\/schedule)?$/,
+      /^\/api\/posts\/[^/]+$/,
+      /^\/api\/comments\/[^/]+(?:\/replies|\/hide)?$/,
+      /^\/api\/pages\/[^/]+\/messages$/,
+      /^\/api\/conversations\/[^/]+\/read$/,
+      /^\/api\/pages\/[^/]+\/(?:photos|videos|albums)$/,
+      /^\/api\/media\/[^/]+$/,
+      /^\/api\/pages\/[^/]+$/,
+      /^\/api\/pages\/[^/]+\/(?:milestones|offers|auto-reply)$/
+    ].some(pattern => pattern.test(req.path));
   }
 
   setupWebSocket(server) {
     const wss = new WebSocket.Server({ server });
     
-    wss.on('connection', (ws) => {
+    wss.on('connection', (ws, req) => {
+      if (!this.isAuthenticated(req)) {
+        ws.close(1008, 'Authentication required');
+        return;
+      }
       console.log('🔌 WebSocket client connected');
       this.wsClients.add(ws);
       
@@ -161,8 +250,93 @@ class Server {
   }
 
   setupRoutes() {
+    this.app.use(express.json());
+    this.app.use(express.urlencoded({ extended: false }));
+
+    this.app.get('/login', (req, res) => {
+      if (this.isAuthenticated(req)) {
+        return res.redirect('/');
+      }
+
+      res.type('html').send(fs.readFileSync(path.join(PUBLIC_DIR, 'login.html'), 'utf8'));
+    });
+
+    this.app.post('/api/auth/login', (req, res) => {
+      const { username, password } = req.body || {};
+
+      if (!config.security.auth.password) {
+        return res.status(500).json({ error: 'APP_PASSWORD is not configured in .env' });
+      }
+
+      if (username !== config.security.auth.username || password !== config.security.auth.password) {
+        return res.status(401).json({ error: 'Invalid username or password' });
+      }
+
+      const token = this.createSession(username);
+      this.setSessionCookie(res, token);
+      res.json({
+        data: {
+          username,
+          readOnly: config.security.readOnly
+        }
+      });
+    });
+
+    this.app.post('/api/auth/logout', (req, res) => {
+      this.clearSession(req, res);
+      res.json({ data: { loggedOut: true } });
+    });
+
+    this.app.get('/api/auth/session', (req, res) => {
+      const session = this.getSessionFromRequest(req);
+      if (!session) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      res.json({
+        data: {
+          username: session.username,
+          readOnly: config.security.readOnly
+        }
+      });
+    });
+
+    this.app.use((req, res, next) => {
+      const isPublicPath = req.path === '/login' || req.path === '/health' || req.path === '/api/auth/login';
+
+      if (isPublicPath || this.isAuthenticated(req)) {
+        return next();
+      }
+
+      const acceptsHtml = (req.headers.accept || '').includes('text/html');
+      if (acceptsHtml && !req.path.startsWith('/api/')) {
+        return res.redirect('/login');
+      }
+
+      res.status(401).json({ error: 'Authentication required' });
+    });
+
+    this.app.use((req, res, next) => {
+      if (config.security.readOnly && this.isReadOnlyBlockedRoute(req)) {
+        return res.status(403).json({ error: 'READ_ONLY mode is enabled for this environment' });
+      }
+
+      next();
+    });
+
+    this.app.get('/api/app-state', (req, res) => {
+      const session = this.getSessionFromRequest(req);
+      res.json({
+        data: {
+          authenticated: Boolean(session),
+          username: session?.username || null,
+          readOnly: config.security.readOnly
+        }
+      });
+    });
+
     // Serve static files
-    this.app.use(express.static(path.join(__dirname, '..', 'public')));
+    this.app.use(express.static(PUBLIC_DIR));
     
     // Get all pages
     this.app.get('/api/pages', (req, res) => {
@@ -2378,8 +2552,8 @@ class Server {
     });
   }
 
-  start(port = 3000) {
-    const server = this.app.listen(port, () => {
+  start(port = 3000, host = 'localhost') {
+    const server = this.app.listen(port, host, () => {
       console.log(`🌐 API Server running on http://localhost:${port}`);
       console.log(`   GET /api/pages - List all pages`);
       console.log(`   GET /api/pages/:id/metrics - Page metrics`);

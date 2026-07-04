@@ -10,43 +10,52 @@ class Scheduler {
   }
 
   start() {
-    console.log('⏰ Scheduler started');
+    if (!config.security.enableScheduler) {
+      console.log('Scheduler disabled by ENABLE_SCHEDULER=false');
+      return;
+    }
+
+    console.log('Scheduler started');
     console.log(`   Daily job: ${config.schedule.daily}`);
 
-    // Schedule daily fetch
     cron.schedule(config.schedule.daily, () => {
-      console.log('\n🕐 Running scheduled daily fetch...');
+      console.log('\nRunning scheduled daily fetch...');
       this.fetchAll();
     });
 
-    // Run immediately on startup
-    console.log('\n🚀 Running initial fetch...');
-    this.fetchAll();
+    if (config.security.enableStartupFetch) {
+      console.log('\nRunning initial fetch...');
+      this.fetchAll();
+    } else {
+      console.log('Initial fetch disabled by ENABLE_STARTUP_FETCH=false');
+    }
   }
 
   async fetchAll() {
     console.log('\n' + '='.repeat(60));
-    console.log('📊 Starting metrics fetch for ALL portfolios');
+    console.log('Starting metrics fetch for all portfolios');
     console.log('='.repeat(60));
 
-    // Fetch tất cả portfolios
     for (const portfolio of this.portfolios) {
       try {
-        console.log(`\n🚀 Starting portfolio: ${portfolio.name}`);
+        console.log(`\nStarting portfolio: ${portfolio.name}`);
         const fetcher = new MetricsFetcher(portfolio);
         await fetcher.fetchAllMetrics();
+
         const adsFetcher = new AdsFetcher(portfolio);
         await adsFetcher.fetchAllAdsMetrics();
+
         const instagramFetcher = new InstagramFetcher(portfolio);
         await instagramFetcher.fetchAllInstagramMetrics();
-        console.log(`✅ Finished portfolio: ${portfolio.name}`);
+
+        console.log(`Finished portfolio: ${portfolio.name}`);
       } catch (err) {
-        console.error(`❌ Error fetching ${portfolio.name}:`, err.message);
+        console.error(`Error fetching ${portfolio.name}:`, err.message);
       }
     }
 
     console.log('\n' + '='.repeat(60));
-    console.log('✅ All portfolios processed');
+    console.log('All portfolios processed');
     console.log('='.repeat(60) + '\n');
   }
 }
