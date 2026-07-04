@@ -1,10 +1,10 @@
-# Audit Report - Facebook Metrics Dashboard
+# Audit Report - Meta Marketing Dashboard
 
 ## 1. Tổng quan dự án
 
 ### Cấu trúc hiện tại
 ```
-fb-metrics/
+meta-marketing-dashboard/
 ├── src/
 │   ├── index.js              # Entry point
 │   ├── server.js             # Express server + API endpoints

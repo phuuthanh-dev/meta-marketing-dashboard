@@ -1,16 +1,22 @@
-# Facebook Metrics Dashboard
+# 📊 Meta Marketing Dashboard
 
-Internal marketing analytics tool for Facebook Organic, Ads, and Instagram reporting.
+> Internal marketing analytics tool for Meta platforms — **Facebook Organic**, **Ads**, and **Instagram** reporting in one place.
 
-## Features
+---
 
-- **Facebook Organic Reporting**: Page metrics, post engagements, reactions, video views
-- **Ads Reporting**: Account-level insights, campaign performance, KPIs
-- **Instagram Reporting**: Account insights, media analytics, demographics
-- **Export**: CSV exports for all data types
-- **Real-time**: WebSocket support for live updates
+## ✨ Features
 
-## Quick Start
+| Module | Capabilities |
+|--------|-------------|
+| 📘 **Facebook Organic** | Page metrics, post engagements, reactions, video views, top posts |
+| 💰 **Ads Reporting** | Account-level insights, campaign performance, KPIs (CTR, CPC, CPM) |
+| 📷 **Instagram** | Account insights, media analytics, demographics, reach trends |
+| 📤 **Export** | CSV exports for all data types |
+| 🔌 **Real-time** | WebSocket support for live updates |
+
+---
+
+## 🚀 Quick Start
 
 ### Local Development
 
@@ -43,9 +49,11 @@ docker-compose up -d
 docker-compose logs -f
 ```
 
-Access dashboard at `http://localhost:3000`
+Access dashboard at **http://localhost:3000**
 
-## Configuration
+---
+
+## ⚙️ Configuration
 
 ### Environment Variables
 
@@ -56,37 +64,49 @@ Access dashboard at `http://localhost:3000`
 | `PORT` | Server port (default: 3000) |
 | `HOST` | Server host (default: localhost) |
 
-### Facebook Token Requirements
+### 🔑 Facebook Token Requirements
 
 Tokens need these permissions:
 - `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`
 - `ads_read` (for Ads reporting)
 - `instagram_basic`, `instagram_manage_insights` (for Instagram)
 
-## API Endpoints
+---
 
-### Facebook Organic
-- `GET /api/pages` - List all pages
-- `GET /api/summary` - Summary stats
-- `GET /api/pages/:id/metrics` - Page metrics
-- `GET /api/pages/:id/top-posts` - Top posts
+## 📡 API Endpoints
 
-### Ads
-- `GET /api/ads/accounts` - List ad accounts
-- `GET /api/ads/accounts/:id/insights` - Account insights
-- `GET /api/ads/accounts/:id/campaigns` - Campaigns list
+### 📘 Facebook Organic
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/pages` | List all pages |
+| GET | `/api/summary` | Summary stats |
+| GET | `/api/pages/:id/metrics` | Page metrics |
+| GET | `/api/pages/:id/top-posts` | Top posts |
 
-### Instagram
-- `GET /api/instagram/accounts` - List IG accounts
-- `GET /api/instagram/accounts/:id/insights` - Account insights
-- `GET /api/instagram/accounts/:id/media` - Media list
+### 💰 Ads
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/ads/accounts` | List ad accounts |
+| GET | `/api/ads/accounts/:id/insights` | Account insights |
+| GET | `/api/ads/accounts/:id/campaigns` | Campaigns list |
 
-### Export
-- `GET /api/export/pages.csv`
-- `GET /api/export/ads/accounts/:id/insights.csv`
-- `GET /api/export/instagram/accounts/:id/media.csv`
+### 📷 Instagram
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/instagram/accounts` | List IG accounts |
+| GET | `/api/instagram/accounts/:id/insights` | Account insights |
+| GET | `/api/instagram/accounts/:id/media` | Media list |
 
-## Scripts
+### 📤 Export
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/export/pages.csv` | Pages summary |
+| GET | `/api/export/ads/accounts/:id/insights.csv` | Ads insights |
+| GET | `/api/export/instagram/accounts/:id/media.csv` | IG media |
+
+---
+
+## 🛠️ Scripts
 
 ```bash
 npm run fetch    # Fetch all metrics from Meta API
@@ -95,27 +115,30 @@ npm run spike    # Run API spike test
 npm run dev      # Start with auto-reload
 ```
 
-## Project Structure
+---
+
+## 📁 Project Structure
 
 ```
-fb-metrics/
+meta-marketing-dashboard/
 ├── src/
 │   ├── index.js          # Entry point
 │   ├── server.js         # Express server + routes
 │   ├── database.js       # SQLite database layer
 │   ├── config.js         # Configuration
 │   ├── scheduler.js      # Cron scheduler
-│   ├── facebook/         # Facebook Organic API
-│   ├── meta-ads/         # Ads API
-│   └── instagram/        # Instagram API
+│   ├── facebook/         # 📘 Facebook Organic API
+│   ├── meta-ads/         # 💰 Ads API
+│   └── instagram/        # 📷 Instagram API
 ├── public/               # Frontend (HTML/CSS/JS)
-├── scripts/              # Utility scripts
 ├── test/                 # Test scripts
 ├── data/                 # SQLite database (gitignored)
 └── docker-compose.yml
 ```
 
-## Deployment
+---
+
+## 🚢 Deployment
 
 ### Railway / Render / Fly.io
 
@@ -128,18 +151,28 @@ fb-metrics/
 
 ```bash
 git clone <repo-url>
-cd fb-metrics
+cd meta-marketing-dashboard
 cp .env.example .env
 # Edit .env
 docker-compose up -d
 ```
 
-## Known Limitations
+---
 
-- Facebook Page demographics metrics are deprecated by Meta
-- Ads summary may mix currencies across accounts
-- Instagram demographics require accounts with sufficient followers
+## ⚠️ Known Limitations
 
-## License
+- ❌ Facebook Page demographics metrics are deprecated by Meta
+- ⚠️ Ads summary may mix currencies across accounts
+- ℹ️ Instagram demographics require accounts with sufficient followers
+
+---
+
+## 📄 License
 
 ISC
+
+---
+
+<div align="center">
+  <sub>Built with ❤️ for internal marketing analytics</sub>
+</div>

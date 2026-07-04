@@ -1,9 +1,9 @@
 version: '3.8'
 
 services:
-  fb-metrics:
+  meta-marketing-dashboard:
     build: .
-    container_name: fb-metrics
+    container_name: meta-marketing-dashboard
     ports:
       - "3000:3000"
     volumes:
