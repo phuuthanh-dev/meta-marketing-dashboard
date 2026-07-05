@@ -46,6 +46,10 @@ class App {
         });
         const targetContent = document.getElementById(`${targetTab}-tab`);
         if (targetContent) targetContent.classList.add('active');
+
+        document.dispatchEvent(new CustomEvent('app:tab-changed', {
+          detail: { tab: targetTab }
+        }));
       });
     });
 
@@ -70,6 +74,10 @@ class App {
           });
           const targetContent = document.getElementById(`${targetSubTab}-tab`);
           if (targetContent) targetContent.classList.add('active');
+
+          document.dispatchEvent(new CustomEvent('app:subtab-changed', {
+            detail: { subtab: targetSubTab }
+          }));
         }
       });
     });

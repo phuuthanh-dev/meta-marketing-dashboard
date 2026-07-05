@@ -46,10 +46,11 @@ class InstagramFetcher {
 
     for (const linked of linkedAccounts) {
       const instagramAccountId = linked.instagram_account_id;
+      let profile = null;
       console.log(`\n  📷 Instagram account: ${linked.username || instagramAccountId} (${instagramAccountId})`);
 
       try {
-        const profile = await this.api.getInstagramAccountProfile(instagramAccountId);
+        profile = await this.api.getInstagramAccountProfile(instagramAccountId);
         this.db.saveInstagramAccount({
           id: instagramAccountId,
           page_id: linked.page_id,
@@ -98,6 +99,7 @@ class InstagramFetcher {
       try {
         const mediaItems = await this.api.getInstagramMedia(instagramAccountId, config.instagram.mediaFetchLimit);
         const insightMediaItems = mediaItems.slice(0, config.instagram.mediaInsightsLimit);
+        const fetchedMediaIds = mediaItems.map(item => item.id).filter(Boolean);
 
         for (const media of mediaItems) {
           this.db.saveInstagramMedia({
@@ -123,6 +125,14 @@ class InstagramFetcher {
             });
           }
         }
+
+        if (mediaItems.length < config.instagram.mediaFetchLimit) {
+          const pruned = this.db.pruneInstagramMediaForAccount(instagramAccountId, fetchedMediaIds);
+          if (pruned > 0) {
+            console.log(`    🧹 Pruned ${pruned} stale Instagram media row(s)`);
+          }
+        }
+
         console.log(`    ✅ Saved ${mediaItems.length} Instagram media item(s), insights for ${insightMediaItems.length}`);
       } catch (error) {
         console.log(`    ⚠️ Media sync error: ${error.message}`);

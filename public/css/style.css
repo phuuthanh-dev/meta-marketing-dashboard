@@ -709,7 +709,6 @@ body > * {
   display: inline-flex;
   align-items: center;
   padding: 0.2rem 0.625rem;
-  background: var(--grad-primary);
   color: white;
   border-radius: var(--radius-pill);
   font-size: 0.625rem;
@@ -1126,6 +1125,11 @@ body > * {
   color: #a5b4fc;
   line-height: 1.5;
   margin-top: 0.75rem;
+}
+
+.ig-note {
+  color: var(--text-muted);
+  font-size: 0.75rem;
 }
 
 /* ── Logout Button ───────────────────────────────────────── */

@@ -31,6 +31,34 @@ class InstagramAPI {
     }
   }
 
+  async fetchPaginated(endpoint, params, options = {}) {
+    const results = [];
+    const maxPages = options.maxPages || 25;
+    let pageCount = 0;
+    let nextUrl = null;
+    let currentEndpoint = endpoint;
+    let currentParams = params;
+
+    while (pageCount < maxPages) {
+      const data = nextUrl
+        ? await this.rawGet(nextUrl, undefined)
+        : await this.rawGet(currentEndpoint, currentParams);
+
+      results.push(...(data.data || []));
+      pageCount += 1;
+
+      if (!data.paging?.next) {
+        break;
+      }
+
+      nextUrl = data.paging.next;
+      currentEndpoint = null;
+      currentParams = undefined;
+    }
+
+    return results;
+  }
+
   async getLinkedInstagramAccounts() {
     const data = await this.rawGet('/me/accounts', {
       access_token: this.token,
@@ -58,12 +86,12 @@ class InstagramAPI {
   }
 
   async getInstagramMedia(instagramAccountId, limit = config.instagram.mediaFetchLimit) {
-    const data = await this.rawGet(`/${instagramAccountId}/media`, {
+    const data = await this.fetchPaginated(`/${instagramAccountId}/media`, {
       access_token: this.token,
       fields: config.instagram.mediaFields.join(','),
-      limit
+      limit: Math.min(limit, 50)
     });
-    return data.data || [];
+    return data.slice(0, limit);
   }
 
   async getAccountDayInsights(instagramAccountId, days = config.instagram.defaultDays) {

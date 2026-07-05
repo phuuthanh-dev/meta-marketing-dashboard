@@ -107,8 +107,8 @@ module.exports = {
 
   instagram: {
     defaultDays: 30,
-    mediaFetchLimit: 10,
-    mediaInsightsLimit: 5,
+    mediaFetchLimit: 50,
+    mediaInsightsLimit: 20,
     profileFields: [
       'id',
       'username',

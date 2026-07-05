@@ -62,6 +62,8 @@ function parseInstagramMediaSnapshot(rawJson) {
       impressions: Number(metricMap.get('impressions') || 0),
       reach: Number(metricMap.get('reach') || 0),
       views: Number(metricMap.get('views') || 0),
+      likes: Number(metricMap.get('likes') || 0),
+      comments: Number(metricMap.get('comments') || 0),
       saved: Number(metricMap.get('saved') || 0),
       shares: Number(metricMap.get('shares') || 0),
       total_interactions: Number(metricMap.get('total_interactions') || 0)
@@ -690,12 +692,17 @@ class Server {
 
     this.app.get('/api/instagram/accounts/:id/media', (req, res) => {
       const { id } = req.params;
-      const limit = parseInt(req.query.limit, 10) || 25;
+      const limit = parseInt(req.query.limit, 10) || 50;
       const media = this.db.getInstagramMediaByAccount(id, limit).map(item => {
         const latestSnapshot = this.db.getLatestInstagramMediaInsights(item.id);
+        const parsedSnapshot = latestSnapshot ? parseInstagramMediaSnapshot(latestSnapshot.raw_json) : null;
+        const interactions = Number(parsedSnapshot?.metrics?.total_interactions || 0)
+          || ((Number(item.like_count) || 0) + (Number(item.comments_count) || 0));
+        const reach = Number(parsedSnapshot?.metrics?.reach || 0);
         return {
           ...item,
-          insights_snapshot: latestSnapshot ? parseInstagramMediaSnapshot(latestSnapshot.raw_json) : null
+          insights_snapshot: parsedSnapshot,
+          engagement_rate: reach > 0 ? (interactions * 100) / reach : 0
         };
       });
       res.json({ data: media });
@@ -803,25 +810,42 @@ class Server {
     this.app.get('/api/instagram/accounts/:id/media-ranking', (req, res) => {
       const { id } = req.params;
       const limit = parseInt(req.query.limit, 10) || 10;
+      const sortBy = String(req.query.sort_by || 'total_interactions');
       const media = this.db.getInstagramMediaByAccount(id, 100).map(item => {
         const latestSnapshot = this.db.getLatestInstagramMediaInsights(item.id);
         const parsedSnapshot = latestSnapshot ? parseInstagramMediaSnapshot(latestSnapshot.raw_json) : null;
         const metricMap = new Map(Object.entries(parsedSnapshot?.metrics || {}));
-        const score = Number(metricMap.get('total_interactions') || 0) ||
-          ((Number(item.like_count) || 0) + (Number(item.comments_count) || 0));
+        const fallbackInteractions = (Number(item.like_count) || 0) + (Number(item.comments_count) || 0);
+        const interactions = Number(metricMap.get('total_interactions') || 0) || fallbackInteractions;
+        const reach = Number(metricMap.get('reach') || 0);
+        const scoreByMetric = {
+          total_interactions: interactions,
+          reach,
+          impressions: Number(metricMap.get('impressions') || 0),
+          views: Number(metricMap.get('views') || 0),
+          saves: Number(metricMap.get('saved') || 0),
+          shares: Number(metricMap.get('shares') || 0),
+          engagement_rate: reach > 0 ? (interactions * 100) / reach : 0
+        };
+        const score = Number(scoreByMetric[sortBy] ?? scoreByMetric.total_interactions);
 
         return {
           ...item,
           supported_insights: parsedSnapshot?.supported === true,
           ranking_score: score,
+          ranking_metric: sortBy,
+          reach,
+          impressions: Number(metricMap.get('impressions') || 0),
           saves: Number(metricMap.get('saved') || 0),
           shares: Number(metricMap.get('shares') || 0),
-          views: Number(metricMap.get('views') || 0)
+          views: Number(metricMap.get('views') || 0),
+          engagement_rate: reach > 0 ? (interactions * 100) / reach : 0,
+          total_interactions: interactions
         };
       }).sort((a, b) => b.ranking_score - a.ranking_score)
         .slice(0, limit);
 
-      res.json({ data: media });
+      res.json({ data: media, meta: { sort_by: sortBy } });
     });
 
     this.app.get('/api/export/instagram/accounts.csv', (req, res) => {

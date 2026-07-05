@@ -1140,6 +1140,14 @@ class DB {
   }
 
   saveInstagramAccount(account) {
+    const existing = this.db.prepare(`
+      SELECT portfolio
+      FROM instagram_accounts
+      WHERE id = ?
+    `).get(account.id);
+
+    const mergedPortfolio = this.mergePortfolioValues(existing?.portfolio, account.portfolio);
+
     this.db.prepare(`
       INSERT INTO instagram_accounts (
         id, page_id, page_name, username, name, biography,
@@ -1169,7 +1177,7 @@ class DB {
       parseInt(account.follows_count, 10) || 0,
       parseInt(account.media_count, 10) || 0,
       account.profile_picture_url || '',
-      account.portfolio || ''
+      mergedPortfolio
     );
   }
 
@@ -1205,6 +1213,26 @@ class DB {
       parseInt(media.like_count, 10) || 0,
       parseInt(media.comments_count, 10) || 0
     );
+  }
+
+  pruneInstagramMediaForAccount(instagramAccountId, keepMediaIds = []) {
+    const ids = Array.isArray(keepMediaIds)
+      ? keepMediaIds.map(id => String(id || '').trim()).filter(Boolean)
+      : [];
+
+    if (ids.length === 0) {
+      return this.db.prepare(`
+        DELETE FROM instagram_media
+        WHERE instagram_account_id = ?
+      `).run(instagramAccountId).changes;
+    }
+
+    const placeholders = ids.map(() => '?').join(', ');
+    return this.db.prepare(`
+      DELETE FROM instagram_media
+      WHERE instagram_account_id = ?
+        AND id NOT IN (${placeholders})
+    `).run(instagramAccountId, ...ids).changes;
   }
 
   saveInstagramAccountInsightSnapshot(snapshot) {
