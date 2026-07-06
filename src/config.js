@@ -158,6 +158,13 @@ module.exports = {
     host: process.env.HOST || 'localhost'
   },
 
+  cloudinary: {
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME || '',
+    apiKey: process.env.CLOUDINARY_API_KEY || '',
+    apiSecret: process.env.CLOUDINARY_API_SECRET || '',
+    folder: process.env.CLOUDINARY_FOLDER || 'social-commerce'
+  },
+
   security: {
     enableScheduler: process.env.ENABLE_SCHEDULER === 'true',
     enableStartupFetch: process.env.ENABLE_STARTUP_FETCH === 'true',

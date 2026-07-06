@@ -170,9 +170,20 @@ class FacebookAPI {
     }
   }
 
+  buildScheduledPublishOptions(scheduledTime) {
+    if (!scheduledTime) {
+      return {};
+    }
+
+    return {
+      published: false,
+      scheduled_publish_time: Math.floor(new Date(scheduledTime).getTime() / 1000)
+    };
+  }
+
   // Delete a post
-  async deletePost(postId) {
-    const pageId = postId.split('_')[0];
+  async deletePost(postId, pageIdOverride = '') {
+    const pageId = pageIdOverride || postId.split('_')[0];
     const pt = await this.getPageToken(pageId);
     
     try {
@@ -409,14 +420,15 @@ class FacebookAPI {
   // ========== MEDIA UPLOAD ==========
 
   // Upload photo to a page
-  async uploadPhoto(pageId, photoUrl, caption = '') {
+  async uploadPhoto(pageId, photoUrl, caption = '', options = {}) {
     const pt = await this.getPageToken(pageId);
     
     try {
       const resp = await this.client.post(`/${pageId}/photos`, {
         url: photoUrl,
         caption,
-        access_token: pt
+        access_token: pt,
+        ...options
       });
       return resp.data;
     } catch (error) {
@@ -429,7 +441,7 @@ class FacebookAPI {
   }
 
   // Upload video to a page
-  async uploadVideo(pageId, videoUrl, title = '', description = '') {
+  async uploadVideo(pageId, videoUrl, title = '', description = '', options = {}) {
     const pt = await this.getPageToken(pageId);
     
     try {
@@ -437,7 +449,8 @@ class FacebookAPI {
         file_url: videoUrl,
         title,
         description,
-        access_token: pt
+        access_token: pt,
+        ...options
       });
       return resp.data;
     } catch (error) {
@@ -736,6 +749,28 @@ class FacebookAPI {
       }
       throw error;
     }
+  }
+
+  async publishMediaPost(pageId, media) {
+    const {
+      mediaType,
+      mediaUrl,
+      message = '',
+      title = '',
+      scheduledTime = null
+    } = media;
+
+    const publishOptions = this.buildScheduledPublishOptions(scheduledTime);
+
+    if (mediaType === 'photo') {
+      return this.uploadPhoto(pageId, mediaUrl, message, publishOptions);
+    }
+
+    if (mediaType === 'video') {
+      return this.uploadVideo(pageId, mediaUrl, title || message, message, publishOptions);
+    }
+
+    throw new Error(`Unsupported media type: ${mediaType}`);
   }
 }
 

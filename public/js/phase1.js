@@ -1,22 +1,75 @@
 // Phase 1: Post Management, Comments, Audience Insights
 
-// Populate page selectors when pages are loaded
+const POST_PAGE_SELECTOR_IDS = [
+  'facebookPageMasterSelect',
+  'postPageSelect',
+  'scheduledPageSelect',
+  'deletePostPageSelect'
+];
+
+function getMasterPageSelect() {
+  return document.getElementById('facebookPageMasterSelect');
+}
+
+function buildPageOptionLabel(page) {
+  return `${page.name} (${page.fan_count || 0} fans)`;
+}
+
 function populatePageSelectors(pages) {
-  const selectors = ['postPageSelect', 'scheduledPageSelect', 'audiencePageSelect', 'reachPageSelect'];
-  
-  selectors.forEach(selectorId => {
+  const selectorIds = [...POST_PAGE_SELECTOR_IDS, 'audiencePageSelect', 'reachPageSelect'];
+  selectorIds.forEach(selectorId => {
     const select = document.getElementById(selectorId);
     if (!select) return;
-    
-    // Keep first option
+
+    const previousValue = select.value;
     select.innerHTML = '<option value="">-- Chọn page --</option>';
-    
+
     pages.forEach(page => {
       const option = document.createElement('option');
       option.value = page.id;
-      option.textContent = `${page.name} (${page.fan_count || 0} fans)`;
+      option.textContent = buildPageOptionLabel(page);
       select.appendChild(option);
     });
+
+    if (previousValue && pages.some(page => page.id === previousValue)) {
+      select.value = previousValue;
+    }
+  });
+}
+
+function syncMasterPageToAll(pageId) {
+  POST_PAGE_SELECTOR_IDS.forEach(selectorId => {
+    if (selectorId === 'facebookPageMasterSelect') return;
+    const select = document.getElementById(selectorId);
+    if (select) {
+      select.value = pageId || '';
+    }
+  });
+}
+
+function hideSlavePageSelectors() {
+  POST_PAGE_SELECTOR_IDS
+    .filter(selectorId => selectorId !== 'facebookPageMasterSelect')
+    .forEach(selectorId => {
+      const select = document.getElementById(selectorId);
+      const group = select?.closest('.form-group');
+      if (group) {
+        group.classList.add('page-slave-group');
+      }
+    });
+}
+
+function populateSinglePageSelector(selectorId, pages) {
+  const select = document.getElementById(selectorId);
+  if (!select) return;
+
+  select.innerHTML = '<option value="">-- Chọn page --</option>';
+
+  pages.forEach(page => {
+    const option = document.createElement('option');
+    option.value = page.id;
+    option.textContent = `${page.name} (${page.fan_count || 0} fans)`;
+    select.appendChild(option);
   });
 }
 
@@ -25,48 +78,215 @@ function populatePageSelectors(pages) {
 // Create Post Form Handler
 document.addEventListener('DOMContentLoaded', () => {
   const form = document.getElementById('createPostForm');
+  const pageSelect = document.getElementById('postPageSelect');
+  const scheduledPageSelect = document.getElementById('scheduledPageSelect');
+  const messageInput = document.getElementById('postMessage');
+  const mediaTypeSelect = document.getElementById('postMediaType');
+  const mediaUrlInput = document.getElementById('postMediaUrl');
+  const mediaFileInput = document.getElementById('postMediaFile');
+  const mediaFileName = document.getElementById('postMediaFileName');
+  const mediaTitleGroup = document.getElementById('postTitleGroup');
+  const mediaTitleInput = document.getElementById('postMediaTitle');
+  const scheduleCheckbox = document.getElementById('schedulePost');
+  const scheduleTimeGroup = document.getElementById('scheduleTimeGroup');
+  const scheduleTimeInput = document.getElementById('scheduleTime');
+  const resultBox = document.getElementById('createPostResult');
+
+  function inferMediaTypeFromFile(file) {
+    if (!file?.type) return '';
+    if (file.type.startsWith('image/')) return 'photo';
+    if (file.type.startsWith('video/')) return 'video';
+    return '';
+  }
+
+  function inferMediaTypeFromUrl(url) {
+    const normalized = String(url || '').toLowerCase();
+    if (/\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?|#|$)/.test(normalized)) return 'photo';
+    if (/\.(mp4|mov|avi|webm|m4v)(\?|#|$)/.test(normalized)) return 'video';
+    return '';
+  }
+
+  function getSelectedPageLabel() {
+    if (!pageSelect) return '';
+    return pageSelect.options[pageSelect.selectedIndex]?.textContent || '';
+  }
+
+  function buildFacebookPostUrl(postId) {
+    if (!postId || !String(postId).includes('_')) {
+      return '';
+    }
+
+    const [pageId, entryId] = String(postId).split('_');
+    if (!pageId || !entryId) {
+      return '';
+    }
+
+    return `https://www.facebook.com/${pageId}/posts/${entryId}`;
+  }
+
+  function renderComposerInfo(message) {
+    if (!resultBox) return;
+    resultBox.innerHTML = `<div class="composer-hint">${message}</div>`;
+  }
+
+  function syncMediaTypeFromInputs({ preferExisting = true } = {}) {
+    if (!mediaTypeSelect) return '';
+
+    const selectedType = mediaTypeSelect.value;
+    const inferredType = inferMediaTypeFromFile(mediaFileInput?.files?.[0]) || inferMediaTypeFromUrl(mediaUrlInput?.value);
+
+    if (!selectedType && inferredType) {
+      mediaTypeSelect.value = inferredType;
+    } else if (!preferExisting && inferredType && selectedType !== inferredType) {
+      mediaTypeSelect.value = inferredType;
+    }
+
+    updateComposerFields();
+    return mediaTypeSelect.value;
+  }
+
+  function updateComposerFields() {
+    const mediaType = mediaTypeSelect ? mediaTypeSelect.value : '';
+    const usesMedia = Boolean(mediaType);
+    const selectedFile = mediaFileInput?.files?.[0] || null;
+    const pageLabel = getSelectedPageLabel();
+
+    if (mediaTitleGroup) {
+      mediaTitleGroup.style.display = mediaType === 'video' ? 'block' : 'none';
+    }
+
+    if (mediaUrlInput) {
+      mediaUrlInput.placeholder = usesMedia
+        ? (mediaType === 'video' ? 'https://example.com/video.mp4' : 'https://example.com/photo.jpg')
+        : 'https://example.com/file.jpg hoặc .mp4';
+    }
+
+    if (!usesMedia && mediaTitleInput) {
+      mediaTitleInput.value = '';
+    }
+
+    if (selectedFile && resultBox) {
+      const inferred = inferMediaTypeFromFile(selectedFile) || mediaType || 'media';
+      if (mediaFileName) {
+        mediaFileName.textContent = selectedFile.name;
+      }
+      renderComposerInfo(
+        `Đã chọn file local: <strong>${escapeHtml(selectedFile.name)}</strong> | Loại: <strong>${escapeHtml(inferred)}</strong>${pageLabel ? ` | Page: <strong>${escapeHtml(pageLabel)}</strong>` : ''}`
+      );
+      return;
+    }
+
+    if (mediaFileName) {
+      mediaFileName.textContent = 'Chưa chọn file';
+    }
+
+    if (usesMedia && mediaUrlInput?.value.trim() && resultBox) {
+      renderComposerInfo(
+        `Sẵn sàng đăng ${escapeHtml(mediaType)} bằng URL${pageLabel ? ` tới <strong>${escapeHtml(pageLabel)}</strong>` : ''}.`
+      );
+    }
+  }
+
   if (form) {
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       
-      const pageId = document.getElementById('postPageSelect').value;
-      const message = document.getElementById('postMessage').value;
-      const schedule = document.getElementById('schedulePost').checked;
-      const scheduleTime = document.getElementById('scheduleTime').value;
-      const resultBox = document.getElementById('createPostResult');
+      const pageId = pageSelect ? pageSelect.value : '';
+      const pageLabel = getSelectedPageLabel();
+      const message = messageInput ? messageInput.value.trim() : '';
+      const mediaType = syncMediaTypeFromInputs();
+      const mediaUrl = mediaUrlInput ? mediaUrlInput.value.trim() : '';
+      const mediaFile = mediaFileInput ? mediaFileInput.files[0] : null;
+      const mediaTitle = mediaTitleInput ? mediaTitleInput.value.trim() : '';
+      const schedule = scheduleCheckbox ? scheduleCheckbox.checked : false;
+      const scheduleTime = scheduleTimeInput ? scheduleTimeInput.value : '';
       
-      if (!pageId || !message) {
-        resultBox.innerHTML = '<div class="error">Vui lòng chọn page và nhập nội dung</div>';
+      if (!pageId) {
+        resultBox.innerHTML = '<div class="error">Vui lòng chọn page</div>';
+        return;
+      }
+
+      if (!message && !mediaType) {
+        resultBox.innerHTML = '<div class="error">Vui lòng nhập nội dung hoặc chọn media</div>';
+        return;
+      }
+
+      if (mediaType && !mediaUrl && !mediaFile) {
+        resultBox.innerHTML = '<div class="error">Vui lòng nhập media URL hoặc chọn file local</div>';
+        return;
+      }
+
+      if (schedule && !scheduleTime) {
+        resultBox.innerHTML = '<div class="error">Vui lòng chọn thời gian lên lịch</div>';
         return;
       }
       
-      resultBox.innerHTML = '<div class="loading">Đang đăng bài...</div>';
+      resultBox.innerHTML = '<div class="loading">Đang xử lý bài đăng...</div>';
       
       try {
-        let response;
+        const formData = new FormData();
+        formData.append('message', message);
+        formData.append('mediaType', mediaType);
+        formData.append('mediaUrl', mediaUrl);
+        formData.append('title', mediaTitle);
+        formData.append('schedule', schedule ? 'true' : 'false');
+
         if (schedule && scheduleTime) {
-          // Schedule post
-          response = await fetch(`/api/pages/${pageId}/posts/schedule`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message, scheduledTime: new Date(scheduleTime).toISOString() })
-          });
-        } else {
-          // Create post immediately
-          response = await fetch(`/api/pages/${pageId}/posts`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message })
-          });
+          formData.append('scheduledTime', new Date(scheduleTime).toISOString());
         }
+
+        if (mediaFile) {
+          formData.append('mediaFile', mediaFile);
+        }
+
+        const response = await fetch(`/api/pages/${pageId}/publish`, {
+          method: 'POST',
+          body: formData
+        });
         
         const result = await response.json();
         
         if (result.error) {
           resultBox.innerHTML = `<div class="error">Lỗi: ${result.error}</div>`;
         } else {
-          resultBox.innerHTML = `<div class="success">✅ Đăng bài thành công! Post ID: ${result.data.id}</div>`;
+          const actionLabel = result.meta?.scheduled ? 'Đã lên lịch bài đăng' : 'Đăng bài thành công';
+          const responseMediaType = result.meta?.mediaType && result.meta.mediaType !== 'text'
+            ? result.meta.mediaType
+            : 'text';
+          const contentId = result.data?.id || '';
+          const publishedPostId = result.data?.post_id || result.data?.id || '';
+          const cloudinaryUrl = result.meta?.cloudinary?.secure_url || result.meta?.mediaUrl || '';
+          const postUrl = buildFacebookPostUrl(publishedPostId);
+          const fileLabel = mediaFile ? `File local: ${mediaFile.name}` : (mediaUrl ? 'Media URL' : 'Text only');
+          const previewHtml = responseMediaType === 'photo' && cloudinaryUrl
+            ? `<img class="publish-preview-image" src="${cloudinaryUrl}" alt="Uploaded preview">`
+            : '';
+          const postLinkHtml = postUrl
+            ? `<a class="publish-link" href="${postUrl}" target="_blank" rel="noopener noreferrer">Mở bài đăng trên Facebook</a>`
+            : '';
+
+          resultBox.innerHTML = `
+            <div class="publish-feedback">
+              <div class="success">✅ ${escapeHtml(actionLabel)}</div>
+              <div class="publish-meta-grid">
+                <div><span class="publish-label">Page</span><strong>${escapeHtml(pageLabel || pageId)}</strong></div>
+                <div><span class="publish-label">Media</span><strong>${escapeHtml(responseMediaType)}</strong></div>
+                <div><span class="publish-label">Post ID</span><strong>${escapeHtml(publishedPostId || result.data?.id || 'N/A')}</strong></div>
+                <div><span class="publish-label">Content ID</span><strong>${escapeHtml(contentId || 'N/A')}</strong></div>
+                <div><span class="publish-label">Nguồn</span><strong>${escapeHtml(fileLabel)}</strong></div>
+              </div>
+              ${previewHtml}
+              ${postLinkHtml}
+            </div>
+          `;
           form.reset();
+          if (mediaFileName) {
+            mediaFileName.textContent = 'Chưa chọn file';
+          }
+          if (scheduleTimeGroup) {
+            scheduleTimeGroup.style.display = 'none';
+          }
+          updateComposerFields();
         }
       } catch (error) {
         resultBox.innerHTML = `<div class="error">Lỗi: ${error.message}</div>`;
@@ -75,18 +295,46 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   
   // Schedule checkbox toggle
-  const scheduleCheckbox = document.getElementById('schedulePost');
-  const scheduleTimeGroup = document.getElementById('scheduleTimeGroup');
   if (scheduleCheckbox && scheduleTimeGroup) {
     scheduleCheckbox.addEventListener('change', (e) => {
       scheduleTimeGroup.style.display = e.target.checked ? 'block' : 'none';
     });
   }
+
+  if (mediaTypeSelect) {
+    mediaTypeSelect.addEventListener('change', updateComposerFields);
+  }
+
+  if (mediaFileInput) {
+    mediaFileInput.addEventListener('change', () => {
+      syncMediaTypeFromInputs({ preferExisting: false });
+    });
+  }
+
+  if (mediaUrlInput) {
+    mediaUrlInput.addEventListener('input', () => {
+      syncMediaTypeFromInputs({ preferExisting: true });
+    });
+  }
+
+  if (pageSelect) {
+    pageSelect.addEventListener('change', updateComposerFields);
+  }
+
+  if (scheduledPageSelect) {
+    scheduledPageSelect.addEventListener('change', () => {
+      if (scheduledPageSelect.value) {
+        loadScheduledPosts();
+      }
+    });
+  }
+
+  updateComposerFields();
 });
 
 // Load Scheduled Posts
 async function loadScheduledPosts() {
-  const pageId = document.getElementById('scheduledPageSelect').value;
+  const pageId = getMasterPageSelect()?.value || document.getElementById('scheduledPageSelect')?.value || '';
   const listBox = document.getElementById('scheduledPostsList');
   
   if (!pageId) {
@@ -108,7 +356,7 @@ async function loadScheduledPosts() {
     const posts = result.data || [];
     
     if (posts.length === 0) {
-      listBox.innerHTML = '<div class="empty">Không có scheduled posts</div>';
+      listBox.innerHTML = '<div class="empty">Không có scheduled posts cho page này</div>';
       return;
     }
     
@@ -137,10 +385,16 @@ async function loadScheduledPosts() {
 // Delete Post
 async function deletePost() {
   const postId = document.getElementById('deletePostId').value;
+  const pageId = document.getElementById('deletePostPageSelect')?.value || '';
   const resultBox = document.getElementById('deletePostResult');
   
   if (!postId) {
-    resultBox.innerHTML = '<div class="error">Vui lòng nhập Post ID</div>';
+    resultBox.innerHTML = '<div class="error">Vui lòng nhập Post ID hoặc Content ID</div>';
+    return;
+  }
+
+  if (!postId.includes('_') && !pageId) {
+    resultBox.innerHTML = '<div class="error">Khi dùng Content ID, vui lòng chọn đúng Page để xóa.</div>';
     return;
   }
   
@@ -149,7 +403,8 @@ async function deletePost() {
   resultBox.innerHTML = '<div class="loading">Đang xóa...</div>';
   
   try {
-    const response = await fetch(`/api/posts/${postId}`, {
+    const query = pageId ? `?pageId=${encodeURIComponent(pageId)}` : '';
+    const response = await fetch(`/api/posts/${encodeURIComponent(postId)}${query}`, {
       method: 'DELETE'
     });
     
@@ -560,6 +815,38 @@ function initPhase1Selectors() {
     if (window.app?.data?.pages?.length > 0) {
       clearInterval(checkPages);
       populatePageSelectors(window.app.data.pages);
+      hideSlavePageSelectors();
+
+      const masterSelect = getMasterPageSelect();
+      if (masterSelect && !masterSelect.dataset.boundMasterSync) {
+        masterSelect.dataset.boundMasterSync = 'true';
+        masterSelect.addEventListener('change', () => {
+          syncMasterPageToAll(masterSelect.value);
+          updateComposerFields();
+
+          const scheduledList = document.getElementById('scheduledPostsList');
+          const deleteResult = document.getElementById('deletePostResult');
+          if (scheduledList) {
+            if (masterSelect.value) {
+              const pageLabel = masterSelect.options[masterSelect.selectedIndex]?.textContent || masterSelect.value;
+              scheduledList.innerHTML = `<div class="loading">Đang tải scheduled posts cho ${escapeHtml(pageLabel)}...</div>`;
+              loadScheduledPosts();
+            } else {
+              scheduledList.innerHTML = 'Chọn page để xem scheduled posts';
+            }
+          }
+
+          if (deleteResult && !masterSelect.value) {
+            deleteResult.innerHTML = '';
+          }
+        });
+      }
+
+      if (masterSelect?.value) {
+        syncMasterPageToAll(masterSelect.value);
+        updateComposerFields();
+      }
+
       console.log('✅ Phase 1 selectors populated');
     }
   }, 100);
@@ -577,3 +864,12 @@ if (document.readyState === 'loading') {
 } else {
   initPhase1Selectors();
 }
+
+document.addEventListener('app:subtab-changed', (event) => {
+  if (event.detail?.subtab === 'posts' && window.app?.data?.pages?.length > 0) {
+    const masterSelect = getMasterPageSelect();
+    if (masterSelect?.value) {
+      syncMasterPageToAll(masterSelect.value);
+    }
+  }
+});

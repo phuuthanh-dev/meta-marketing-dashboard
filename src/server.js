@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
+const multer = require('multer');
 const rateLimit = require('express-rate-limit');
 const Database = require('./database');
 const FacebookAPI = require('./facebook/api');
@@ -10,6 +11,7 @@ const MetaAdsAPI = require('./meta-ads/api');
 const AdsFetcher = require('./meta-ads/fetcher');
 const InstagramAPI = require('./instagram/api');
 const InstagramFetcher = require('./instagram/fetcher');
+const CloudinaryService = require('./cloudinary');
 const config = require('./config');
 const WebSocket = require('ws');
 const PUBLIC_DIR = path.resolve(__dirname, '..', 'public');
@@ -21,6 +23,13 @@ const loginLimiter = rateLimit({
   message: { error: 'Too many login attempts. Please try again in 15 minutes.' },
   standardHeaders: true,
   legacyHeaders: false
+});
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 200 * 1024 * 1024
+  }
 });
 
 function getRecentPosts(posts, days) {
@@ -138,6 +147,28 @@ function normalizeDays(value, fallback = 30) {
   return parseInt(value, 10) || fallback;
 }
 
+function normalizeBoolean(value) {
+  return value === true || value === 'true' || value === '1' || value === 1;
+}
+
+function normalizeMediaType(value = '') {
+  const mediaType = String(value || '').trim().toLowerCase();
+  return mediaType === 'photo' || mediaType === 'video' ? mediaType : '';
+}
+
+function parseScheduledTime(value) {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new Error('Scheduled time is invalid.');
+  }
+
+  return parsed;
+}
+
 function parseCookies(cookieHeader = '') {
   return cookieHeader.split(';').reduce((acc, part) => {
     const [key, ...rest] = part.trim().split('=');
@@ -217,6 +248,7 @@ class Server {
 
     return [
       /^\/api\/pages\/[^/]+\/posts(?:\/schedule)?$/,
+      /^\/api\/pages\/[^/]+\/publish$/,
       /^\/api\/posts\/[^/]+$/,
       /^\/api\/comments\/[^/]+(?:\/replies|\/hide)?$/,
       /^\/api\/pages\/[^/]+\/messages$/,
@@ -379,7 +411,91 @@ class Server {
       etag: true
     }));
     this.app.use(express.static(PUBLIC_DIR, { etag: true }));
-    
+
+    this.app.post('/api/pages/:id/publish', upload.single('mediaFile'), async (req, res) => {
+      try {
+        const { id } = req.params;
+        const page = this.db.getPages().find(p => p.id === id);
+        if (!page) {
+          return res.status(404).json({ error: 'Page not found' });
+        }
+
+        const portfolio = config.portfolios.find(p => p.name === page.portfolio);
+        if (!portfolio) {
+          return res.status(404).json({ error: 'Portfolio not found' });
+        }
+
+        const message = String(req.body.message || '').trim();
+        const title = String(req.body.title || '').trim();
+        const mediaType = normalizeMediaType(req.body.mediaType);
+        const mediaUrlInput = String(req.body.mediaUrl || '').trim();
+        const shouldSchedule = normalizeBoolean(req.body.schedule);
+        const scheduledTime = shouldSchedule ? parseScheduledTime(req.body.scheduledTime) : null;
+
+        if (!message && !mediaType) {
+          return res.status(400).json({ error: 'Please provide a message or select a media type.' });
+        }
+
+        let mediaUrl = mediaUrlInput;
+        let cloudinaryAsset = null;
+
+        if (req.file) {
+          if (!CloudinaryService.isConfigured()) {
+            return res.status(400).json({ error: 'Cloudinary is not configured for local file uploads.' });
+          }
+
+          const uploadResult = await CloudinaryService.uploadLocalFile(req.file, {
+            resourceType: mediaType || 'auto'
+          });
+
+          mediaUrl = uploadResult.secure_url;
+          cloudinaryAsset = {
+            public_id: uploadResult.public_id,
+            secure_url: uploadResult.secure_url,
+            resource_type: uploadResult.resource_type,
+            bytes: uploadResult.bytes
+          };
+        }
+
+        const api = new FacebookAPI(portfolio.token);
+        let result;
+
+        if (!mediaType) {
+          if (!message) {
+            return res.status(400).json({ error: 'Message is required for text posts.' });
+          }
+
+          result = scheduledTime
+            ? await api.schedulePost(id, message, scheduledTime)
+            : await api.createPost(id, message);
+        } else {
+          if (!mediaUrl) {
+            return res.status(400).json({ error: 'Please provide a media URL or upload a file.' });
+          }
+
+          result = await api.publishMediaPost(id, {
+            mediaType,
+            mediaUrl,
+            message,
+            title,
+            scheduledTime
+          });
+        }
+
+        res.json({
+          data: result,
+          meta: {
+            mediaType: mediaType || 'text',
+            scheduled: Boolean(scheduledTime),
+            mediaUrl: mediaUrl || null,
+            cloudinary: cloudinaryAsset
+          }
+        });
+      } catch (err) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
     // Get all pages
     this.app.get('/api/pages', (req, res) => {
       const pages = this.db.getPages();
@@ -1198,8 +1314,9 @@ class Server {
     this.app.delete('/api/posts/:id', async (req, res) => {
       try {
         const { id } = req.params;
+        const pageIdOverride = String(req.query.pageId || '').trim();
         
-        const pageId = id.split('_')[0];
+        const pageId = pageIdOverride || id.split('_')[0];
         const page = this.db.getPages().find(p => p.id === pageId);
         if (!page) {
           return res.status(404).json({ error: 'Page not found' });
@@ -1211,7 +1328,7 @@ class Server {
         }
         
         const api = new FacebookAPI(portfolio.token);
-        const result = await api.deletePost(id);
+        const result = await api.deletePost(id, pageIdOverride);
         res.json({ data: result });
       } catch (err) {
         res.status(500).json({ error: err.message });

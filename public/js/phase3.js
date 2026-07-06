@@ -698,6 +698,7 @@ function populatePhase3Selectors(pages) {
       });
     }
   });
+
 }
 
 // Initialize Phase 3 selectors

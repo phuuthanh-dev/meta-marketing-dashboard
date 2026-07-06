@@ -8,11 +8,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/style.css?v=3">
+  <link rel="stylesheet" href="/css/style.css?v=12">
   <!-- Chart.js: local copy, no CDN dependency -->
   <script src="/js/vendor/chart.min.js" defer></script>
   <!-- All app JS: 10 files bundled + minified into 1 (39% smaller) -->
-  <script src="/dist/bundle.min.js?v=3" defer></script>
+  <script src="/dist/bundle.min.js?v=12" defer></script>
 </head>
 <body>
   <header class="header">
@@ -130,6 +130,18 @@
 
         <!-- Posts Tab -->
         <div class="sub-tab-content" id="posts-tab">
+          <div class="page-master-bar">
+            <div class="page-master-bar__content">
+              <div>
+                <h3>Page Dùng Cho Posts</h3>
+                <p>Cac thao tac dang bai, xem lich va xoa bai ben duoi se dung page nay.</p>
+              </div>
+              <div class="page-master-bar__control">
+                <label for="facebookPageMasterSelect">Chọn Page</label>
+                <select id="facebookPageMasterSelect"><option value="">-- Chọn page --</option></select>
+              </div>
+            </div>
+          </div>
           <div class="section-header">
             <h2>Facebook Post Operations</h2>
             <p class="section-description">Tạo, lên lịch và quản lý bài đăng</p>
@@ -143,34 +155,73 @@
               </div>
               <div class="form-group">
                 <label>Nội dung:</label>
-                <textarea id="postMessage" rows="4" placeholder="Nhập nội dung bài đăng..." required></textarea>
+                <textarea id="postMessage" rows="4" placeholder="Nhập nội dung bài đăng..."></textarea>
               </div>
-              <div class="form-group">
+              <div class="form-group posts-grid-two">
+                <label>Loại bài đăng:</label>
+                <select id="postMediaType">
+                  <option value="">Text only</option>
+                  <option value="photo">Photo post</option>
+                  <option value="video">Video post</option>
+                </select>
+              </div>
+              <div class="form-group posts-grid-two">
+                <label>Media URL (tùy chọn):</label>
+                <input type="text" id="postMediaUrl" placeholder="https://example.com/file.jpg hoặc .mp4">
+              </div>
+              <div class="form-group posts-grid-two">
+                <label>Hoặc chọn file local:</label>
+                <div class="file-input-shell">
+                  <input type="file" id="postMediaFile" accept="image/*,video/*">
+                  <label for="postMediaFile" class="file-input-button">Chọn file</label>
+                  <span id="postMediaFileName" class="file-input-name">Chưa chọn file</span>
+                </div>
+              </div>
+              <div class="form-group posts-grid-two" id="postTitleGroup" style="display: none;">
+                <label>Tiêu đề video (tùy chọn):</label>
+                <input type="text" id="postMediaTitle" placeholder="Tiêu đề video">
+              </div>
+              <div class="form-group posts-grid-two posts-schedule-toggle">
                 <label><input type="checkbox" id="schedulePost"> Lên lịch đăng</label>
               </div>
-              <div class="form-group" id="scheduleTimeGroup" style="display: none;">
+              <div class="form-group posts-grid-two" id="scheduleTimeGroup" style="display: none;">
                 <label>Thời gian:</label>
                 <input type="datetime-local" id="scheduleTime">
               </div>
-              <button type="submit" class="btn btn-primary">Đăng bài</button>
+              <div class="posts-primary-action">
+                <button type="submit" class="btn btn-primary">Đăng bài</button>
+              </div>
             </form>
             <div id="createPostResult" class="result-box"></div>
           </div>
           <div class="action-card">
             <h3>&#x23F0; Scheduled Posts</h3>
-            <div class="form-group">
-              <label>Chọn Page:</label>
-              <select id="scheduledPageSelect"><option value="">-- Chọn page --</option></select>
-              <button onclick="loadScheduledPosts()" class="btn btn-secondary">Tải danh sách</button>
+            <div class="posts-toolbar">
+              <div class="posts-toolbar__meta">
+                <span class="posts-toolbar__title">Lịch đăng của page đã chọn</span>
+                <span class="posts-toolbar__hint">Dữ liệu sẽ lấy theo page ở thanh phía trên.</span>
+              </div>
+              <button onclick="loadScheduledPosts()" class="btn btn-secondary">Làm mới</button>
             </div>
             <div id="scheduledPostsList" class="list-box">Chọn page để xem scheduled posts</div>
           </div>
           <div class="action-card">
             <h3>️ Xóa bài đăng</h3>
+            <div class="posts-toolbar posts-toolbar--danger">
+              <div class="posts-toolbar__meta">
+                <span class="posts-toolbar__title">Xóa bài theo ID</span>
+                <span class="posts-toolbar__hint">Dùng page đang chọn ở phía trên để xác định đúng bài cần xóa.</span>
+              </div>
+            </div>
+            <div class="form-group posts-inline-action posts-inline-action--danger">
+              <div class="posts-inline-field">
+                <label>Post ID hoặc Content ID:</label>
+                <input type="text" id="deletePostId" placeholder="VD: 123456_789012 hoặc 1704649874502919">
+              </div>
+              <button onclick="deletePost()" class="btn btn-danger">Xóa bài</button>
+            </div>
             <div class="form-group">
-              <label>Post ID:</label>
-              <input type="text" id="deletePostId" placeholder="VD: 123456_789012">
-              <button onclick="deletePost()" class="btn btn-danger">Xóa</button>
+              <small class="form-help">Với bài ảnh/video, Meta thường có 2 ID. Nếu xóa bằng Content ID, hãy chọn đúng Page.</small>
             </div>
             <div id="deletePostResult" class="result-box"></div>
           </div>

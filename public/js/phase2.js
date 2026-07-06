@@ -493,6 +493,7 @@ function populatePhase2Selectors(pages) {
       });
     }
   });
+
 }
 
 // Populate Phase 2 selectors when app is ready

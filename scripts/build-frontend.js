@@ -11,6 +11,9 @@ const path = require('path');
 const PUBLIC = path.resolve(__dirname, '..', 'public');
 const OUT_DIR = path.join(PUBLIC, 'dist');
 const OUT_FILE = path.join(OUT_DIR, 'bundle.min.js');
+const VENDOR_DIR = path.join(PUBLIC, 'js', 'vendor');
+const CHART_SRC = path.resolve(__dirname, '..', 'node_modules', 'chart.js', 'dist', 'chart.umd.js');
+const CHART_OUT = path.join(VENDOR_DIR, 'chart.min.js');
 
 // Thứ tự QUAN TRỌNG: phải load theo dependency order
 const JS_FILES = [
@@ -31,6 +34,12 @@ async function build() {
   if (!fs.existsSync(OUT_DIR)) {
     fs.mkdirSync(OUT_DIR, { recursive: true });
   }
+  if (!fs.existsSync(VENDOR_DIR)) {
+    fs.mkdirSync(VENDOR_DIR, { recursive: true });
+  }
+
+  // Copy local Chart.js UMD build so index.html has no CDN dependency.
+  fs.copyFileSync(CHART_SRC, CHART_OUT);
 
   const startMs = Date.now();
 
@@ -67,6 +76,7 @@ async function build() {
   console.log(`   Input : ${rawKb} KB (${JS_FILES.length} files)`);
   console.log(`   Output: ${outKb} KB (1 file)`);
   console.log(`   Saved : ${saved}% smaller`);
+  console.log(`   Vendor: public/js/vendor/chart.min.js`);
   console.log(`   → public/dist/bundle.min.js`);
 }
 
