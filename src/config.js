@@ -102,6 +102,18 @@ module.exports = {
       'cpm',
       'spend',
       'frequency'
+    ],
+    optionalInsightFields: [
+      'actions',
+      'cost_per_action_type',
+      'purchase_roas',
+      'website_purchase_roas',
+      'outbound_clicks',
+      'inline_link_clicks',
+      'unique_clicks',
+      'unique_inline_link_clicks',
+      'cost_per_inline_link_click',
+      'cost_per_unique_click'
     ]
   },
 

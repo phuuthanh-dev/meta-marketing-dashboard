@@ -882,6 +882,136 @@ function initAdditionalCharts(pageId) {
   additionalCharts.init(pageId);
 }
 
+function renderPageHealthAudit(audit) {
+  const box = document.getElementById('pageHealthAuditBox');
+  if (!box) return;
+
+  if (!audit) {
+    box.innerHTML = 'Chọn page rồi chạy audit để xem sức khỏe và checklist tối ưu.';
+    return;
+  }
+
+  const checklist = (audit.checklist || []).map(item => `
+    <div class="audit-check ${escapeHtml(item.severity || 'info')}">
+      <strong>${escapeHtml(item.title || '')}</strong>
+      <span>${escapeHtml(item.detail || '')}</span>
+      <span>${escapeHtml(item.action || '')}</span>
+    </div>
+  `).join('');
+  const actions = (audit.recommended_actions || []).map(item => `
+    <div class="audit-action ${escapeHtml(item.priority || 'medium')}">
+      <strong>${escapeHtml(item.title || '')}</strong>
+      <span>${escapeHtml(item.rationale || '')}</span>
+      <span>${escapeHtml(item.next_step || '')}</span>
+    </div>
+  `).join('') || '<div class="empty-state">Chưa có hành động đề xuất.</div>';
+  const topPosts = audit.content?.top_posts || [];
+  const topPostsHtml = topPosts.map(post => `
+    <tr>
+      <td><strong>${escapeHtml(post.message || '-')}</strong></td>
+      <td>${post.engagement || 0}</td>
+      <td>${post.comments || 0}</td>
+      <td>${post.created_time ? new Date(post.created_time).toLocaleDateString('vi-VN') : '-'}</td>
+    </tr>
+  `).join('') || '<tr><td colspan="4" class="empty-state">Chưa có post đủ dữ liệu để xếp hạng.</td></tr>';
+  const windows = (audit.posting_windows || []).map(item => `
+    <span class="ads-context-pill"><strong>${escapeHtml(item.label || '')}</strong> TB ${Number(item.avg_engagement || 0).toFixed(1)}</span>
+  `).join('') || '<span class="ads-context-empty">Chưa đủ dữ liệu khung giờ đăng.</span>';
+  const gaps = (audit.data_gaps || []).map(item => `
+    <div class="audit-check ${escapeHtml(item.severity || 'info')}">
+      <strong>${escapeHtml(item.title || '')}</strong>
+      <span>${escapeHtml(item.detail || '')}</span>
+    </div>
+  `).join('');
+  const contentSource = audit.metrics?.content_source === 'latest_available_history'
+    ? 'Xếp hạng nội dung đang dùng lịch sử gần nhất vì khoảng ngày đã chọn có ít hoặc không có bài.'
+    : 'Xếp hạng nội dung đang dùng đúng khoảng ngày đã chọn.';
+
+  box.innerHTML = `
+    <div class="audit-score">
+      <strong>${audit.score}</strong>
+      <span>/100 · ${escapeHtml(audit.status || '')}</span>
+    </div>
+    <div class="ads-context-bar">
+      <span class="ads-context-pill"><strong>Bài đăng:</strong> ${audit.metrics?.post_count || 0}</span>
+      <span class="ads-context-pill"><strong>Bài/tuần:</strong> ${audit.metrics?.posts_per_week || 0}</span>
+      <span class="ads-context-pill"><strong>Engagement TB:</strong> ${audit.metrics?.avg_engagement_per_post || 0}</span>
+      <span class="ads-context-pill scope"><strong>Eng/Fans:</strong> ${audit.metrics?.engagement_per_fan_pct || 0}%</span>
+    </div>
+    <div class="audit-section">
+      <h4>Hành động đề xuất</h4>
+      <div class="audit-checklist">${actions}</div>
+    </div>
+    <div class="audit-section">
+      <h4>Nội dung đang thắng</h4>
+      <p>${escapeHtml(contentSource)}</p>
+      <details class="collapsible-table">
+        <summary>Top posts table</summary>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead><tr><th>Bài đăng</th><th>Engagement</th><th>Bình luận</th><th>Ngày đăng</th></tr></thead>
+            <tbody>${topPostsHtml}</tbody>
+          </table>
+        </div>
+      </details>
+    </div>
+    <div class="audit-section">
+      <h4>Khung giờ đăng tốt nhất</h4>
+      <div class="ads-context-bar">${windows}</div>
+    </div>
+    <div class="audit-section">
+      <h4>Checklist</h4>
+      <div class="audit-checklist">${checklist}</div>
+    </div>
+    ${gaps ? `<div class="audit-section"><h4>Khoảng trống dữ liệu</h4><div class="audit-checklist">${gaps}</div></div>` : ''}
+  `;
+}
+
+async function loadPageHealthAudit() {
+  const pageSelect = document.getElementById('pageSelect');
+  let pageId = pageSelect?.value || '';
+  if (!pageId && window.app?.data?.pages?.length > 0) {
+    pageId = window.app.data.pages[0].id;
+    if (pageSelect) {
+      pageSelect.value = pageId;
+    }
+  }
+  const days = getAnalyticsDays();
+  const box = document.getElementById('pageHealthAuditBox');
+
+  if (!pageId) {
+    if (box) box.innerHTML = '<span class="error">Chọn page trước khi chạy audit.</span>';
+    return;
+  }
+
+  try {
+    if (box) box.innerHTML = '<div class="loading">Đang kiểm tra sức khỏe page...</div>';
+    const response = await fetch(`/api/pages/${pageId}/health-audit?days=${encodeURIComponent(days)}`);
+    const payload = await response.json();
+    if (!response.ok || payload.error) {
+      throw new Error(payload.error || `HTTP ${response.status}`);
+    }
+    renderPageHealthAudit(payload.data);
+  } catch (error) {
+    if (box) box.innerHTML = `<span class="error">Audit thất bại: ${escapeHtml(error.message)}</span>`;
+  }
+}
+
+function exportPageHealthAudit(format) {
+  const pageSelect = document.getElementById('pageSelect');
+  let pageId = pageSelect?.value || '';
+  if (!pageId && window.app?.data?.pages?.length > 0) {
+    pageId = window.app.data.pages[0].id;
+  }
+  if (!pageId) {
+    const box = document.getElementById('pageHealthAuditBox');
+    if (box) box.innerHTML = '<span class="error">Chọn page trước khi export audit.</span>';
+    return;
+  }
+  const days = getAnalyticsDays();
+  window.location.href = `/api/export/pages/${pageId}/health-audit.${format}?days=${encodeURIComponent(days)}`;
+}
+
 // Auto-initialize when page selector changes
 document.addEventListener('DOMContentLoaded', () => {
   // Wait for pages to load
@@ -894,6 +1024,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Auto-select first page
         if (window.app.data.pages.length > 0) {
           initAdditionalCharts(window.app.data.pages[0].id);
+          loadPageHealthAudit();
         }
         
         // Listen for changes
@@ -901,6 +1032,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const pageId = e.target.value;
           if (pageId) {
             initAdditionalCharts(pageId);
+            loadPageHealthAudit();
           }
         });
 
@@ -909,6 +1041,7 @@ document.addEventListener('DOMContentLoaded', () => {
           daysSelect.addEventListener('change', () => {
             if (pageSelect.value) {
               initAdditionalCharts(pageSelect.value);
+              loadPageHealthAudit();
             }
           });
         }
@@ -920,6 +1053,19 @@ document.addEventListener('DOMContentLoaded', () => {
               initAdditionalCharts(pageSelect.value);
             }
           });
+        }
+
+        const auditBtn = document.getElementById('pageHealthAuditBtn');
+        if (auditBtn) {
+          auditBtn.addEventListener('click', loadPageHealthAudit);
+        }
+        const auditCsvBtn = document.getElementById('pageHealthExportCsvBtn');
+        if (auditCsvBtn) {
+          auditCsvBtn.addEventListener('click', () => exportPageHealthAudit('csv'));
+        }
+        const auditMdBtn = document.getElementById('pageHealthExportMdBtn');
+        if (auditMdBtn) {
+          auditMdBtn.addEventListener('click', () => exportPageHealthAudit('md'));
         }
       }
     }

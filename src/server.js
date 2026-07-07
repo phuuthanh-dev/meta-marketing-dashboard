@@ -156,6 +156,719 @@ function normalizeMediaType(value = '') {
   return mediaType === 'photo' || mediaType === 'video' ? mediaType : '';
 }
 
+function parseJsonSafe(value, fallback = {}) {
+  if (!value) return fallback;
+  try {
+    return JSON.parse(value);
+  } catch (_) {
+    return fallback;
+  }
+}
+
+function toNumber(value) {
+  return Number(value || 0) || 0;
+}
+
+function getActionValue(items, actionTypes) {
+  const rows = Array.isArray(items) ? items : [];
+  const wanted = new Set(actionTypes);
+  const match = rows.find(item => wanted.has(item.action_type));
+  return match ? toNumber(match.value) : 0;
+}
+
+function getPrimaryAdsResult(raw, spend) {
+  const actions = Array.isArray(raw.actions) ? raw.actions : [];
+  const priorityTypes = [
+    'lead',
+    'onsite_conversion.lead_grouped',
+    'offsite_conversion.fb_pixel_lead',
+    'omni_purchase',
+    'purchase',
+    'offsite_conversion.fb_pixel_purchase',
+    'messaging_conversation_started_7d',
+    'landing_page_view',
+    'link_click',
+    'post_engagement'
+  ];
+
+  let actionType = '';
+  let value = 0;
+  for (const type of priorityTypes) {
+    value = getActionValue(actions, [type]);
+    if (value > 0) {
+      actionType = type;
+      break;
+    }
+  }
+
+  if (!actionType && actions.length > 0) {
+    const topAction = actions
+      .map(item => ({ action_type: item.action_type, value: toNumber(item.value) }))
+      .sort((a, b) => b.value - a.value)[0];
+    actionType = topAction?.action_type || '';
+    value = topAction?.value || 0;
+  }
+
+  const costRows = Array.isArray(raw.cost_per_action_type) ? raw.cost_per_action_type : [];
+  const costPerResult = actionType
+    ? getActionValue(costRows, [actionType]) || (value > 0 ? spend / value : 0)
+    : 0;
+
+  return {
+    result_action_type: actionType,
+    results: value,
+    cost_per_result: costPerResult
+  };
+}
+
+function enrichAdInsightRows(rows) {
+  return (rows || []).map(row => {
+    const raw = parseJsonSafe(row.raw_json, {});
+    const spend = toNumber(row.spend);
+    const result = getPrimaryAdsResult(raw, spend);
+    const purchaseRoasRows = Array.isArray(raw.purchase_roas)
+      ? raw.purchase_roas
+      : Array.isArray(raw.website_purchase_roas)
+        ? raw.website_purchase_roas
+        : [];
+
+    return {
+      ...row,
+      ...result,
+      outbound_clicks: getActionValue(raw.outbound_clicks, ['outbound_click']),
+      inline_link_clicks: toNumber(raw.inline_link_clicks),
+      unique_clicks: toNumber(raw.unique_clicks),
+      unique_inline_link_clicks: toNumber(raw.unique_inline_link_clicks),
+      cost_per_inline_link_click: toNumber(raw.cost_per_inline_link_click),
+      cost_per_unique_click: toNumber(raw.cost_per_unique_click),
+      purchase_roas: purchaseRoasRows.length > 0
+        ? Math.max(...purchaseRoasRows.map(item => toNumber(item.value)))
+        : 0
+    };
+  });
+}
+
+function makeDraftId(prefix) {
+  return `${prefix}_${Date.now().toString(36)}_${crypto.randomBytes(4).toString('hex')}`;
+}
+
+function daysSince(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return Math.floor((Date.now() - date.getTime()) / (24 * 60 * 60 * 1000));
+}
+
+function getPostEngagement(post) {
+  return (
+    toNumber(post.like_count) +
+    toNumber(post.love_count) +
+    toNumber(post.wow_count) +
+    toNumber(post.haha_count) +
+    toNumber(post.click_count) +
+    toNumber(post.video_views)
+  );
+}
+
+function truncateText(value, maxLength = 90) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  return text.length > maxLength ? `${text.slice(0, maxLength - 1)}…` : text;
+}
+
+function getDayName(dayIndex) {
+  return ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'][dayIndex] || 'Không rõ';
+}
+
+function buildPageHealthAudit({ page, metrics, posts, comments, days }) {
+  const checks = [];
+  const recommendedActions = [];
+  const dataGaps = [];
+  let score = 100;
+  const addCheck = (severity, title, detail, action, penalty = 0) => {
+    checks.push({ severity, title, detail, action });
+    score -= penalty;
+  };
+  const addAction = (priority, title, rationale, nextStep) => {
+    recommendedActions.push({ priority, title, rationale, next_step: nextStep });
+  };
+  const addDataGap = (severity, title, detail) => {
+    dataGaps.push({ severity, title, detail });
+  };
+
+  const latestMetricDate = metrics[0]?.date || null;
+  const latestPostDate = posts[0]?.created_time || null;
+  const metricAgeDays = daysSince(latestMetricDate);
+  const postAgeDays = daysSince(latestPostDate);
+  const recentPosts = getRecentPosts(posts, days);
+  const contentPool = recentPosts.length > 0 ? recentPosts : posts.slice(0, 50);
+  const contentSource = recentPosts.length > 0 ? 'selected_window' : 'latest_available_history';
+  const postCount = recentPosts.length;
+  const postsPerWeek = days > 0 ? postCount / (days / 7) : 0;
+  const totalEngagement = recentPosts.reduce((sum, post) => sum + getPostEngagement(post), 0);
+  const avgEngagementPerPost = postCount > 0 ? totalEngagement / postCount : 0;
+  const engagementPerFan = page.fan_count > 0 ? (totalEngagement / page.fan_count) * 100 : 0;
+  const commentRows = comments || [];
+  const commentsByPost = commentRows.reduce((acc, comment) => {
+    const postId = comment.post_id || '';
+    if (!postId) return acc;
+    acc[postId] = (acc[postId] || 0) + 1;
+    return acc;
+  }, {});
+  const scoredPosts = contentPool
+    .map(post => ({
+      id: post.id,
+      message: truncateText(post.message || '(no text)'),
+      created_time: post.created_time,
+      engagement: getPostEngagement(post),
+      reactions: toNumber(post.like_count) + toNumber(post.love_count) + toNumber(post.wow_count) + toNumber(post.haha_count),
+      clicks: toNumber(post.click_count),
+      video_views: toNumber(post.video_views),
+      comments: commentsByPost[post.id] || 0
+    }))
+    .sort((a, b) => b.engagement - a.engagement);
+  const topPosts = scoredPosts.slice(0, 5);
+  const underperformingPosts = scoredPosts
+    .filter(post => post.engagement <= avgEngagementPerPost || avgEngagementPerPost === 0)
+    .slice(-5)
+    .reverse();
+  const timeBuckets = contentPool.reduce((acc, post) => {
+    if (!post.created_time) return acc;
+    const date = new Date(post.created_time);
+    if (Number.isNaN(date.getTime())) return acc;
+    const key = `${date.getDay()}-${date.getHours()}`;
+    if (!acc[key]) {
+      acc[key] = {
+        day: date.getDay(),
+        hour: date.getHours(),
+        post_count: 0,
+        engagement: 0
+      };
+    }
+    acc[key].post_count += 1;
+    acc[key].engagement += getPostEngagement(post);
+    return acc;
+  }, {});
+  const postingWindows = Object.values(timeBuckets)
+    .map(bucket => ({
+      ...bucket,
+      label: `${getDayName(bucket.day)} ${String(bucket.hour).padStart(2, '0')}:00`,
+      avg_engagement: bucket.post_count > 0 ? bucket.engagement / bucket.post_count : 0
+    }))
+    .filter(bucket => bucket.post_count > 0)
+    .sort((a, b) => b.avg_engagement - a.avg_engagement)
+    .slice(0, 5);
+
+  if (metricAgeDays === null || metricAgeDays > 3) {
+    addCheck(
+      'warning',
+      'Độ mới dữ liệu',
+      metricAgeDays === null ? 'Chưa có snapshot metrics trong local DB.' : `Snapshot metrics mới nhất đã cách đây ${metricAgeDays} ngày.`,
+      'Chạy sync dữ liệu trước khi dùng audit để ra quyết định tối ưu.',
+      12
+    );
+    addAction(
+      'high',
+      'Làm mới dữ liệu Page trước khi quyết định',
+      'Audit kém đáng tin hơn khi metrics local bị cũ hoặc bị thiếu.',
+      'Chạy luồng fetch/sync hiện có, sau đó chạy lại kiểm tra sức khỏe Page.'
+    );
+    addDataGap(
+      'warning',
+      'Độ mới metrics',
+      metricAgeDays === null ? 'Chưa có snapshot metrics Page trong local DB.' : `Snapshot metrics Page mới nhất đã cách đây ${metricAgeDays} ngày.`
+    );
+  } else {
+    addCheck('ok', 'Độ mới dữ liệu', 'Metrics local đủ mới cho vòng audit đầu tiên.', 'Duy trì sync hằng ngày hoặc sync lại trước mỗi phiên review.');
+  }
+
+  if (postAgeDays === null || postAgeDays > 14) {
+    addCheck(
+      'warning',
+      'Độ mới bài đăng',
+      postAgeDays === null ? 'Chưa có lịch sử post trong local DB.' : `Bài đăng mới nhất đã cách đây ${postAgeDays} ngày.`,
+      'Chuẩn bị kế hoạch bài mới và dùng scheduler cho 7-14 ngày tới.',
+      14
+    );
+    addAction(
+      'high',
+      'Khởi động lại nhịp đăng bài',
+      postAgeDays === null ? 'Không tìm thấy lịch sử post trong local DB.' : `Bài đăng mới nhất trong local DB đã cách đây ${postAgeDays} ngày.`,
+      'Draft và schedule 3 bài cho 7 ngày tới, dùng một content angle đã chứng minh hiệu quả từ nhóm bài thắng.'
+    );
+  } else {
+    addCheck('ok', 'Độ mới bài đăng', 'Page có hoạt động đăng bài gần đây.', 'Tiếp tục theo dõi nhịp đăng theo tuần.');
+  }
+
+  if (postsPerWeek < 3) {
+    addCheck(
+      'warning',
+      'Nhịp đăng bài',
+      `${postsPerWeek.toFixed(1)} bài/tuần trong khoảng ngày đang chọn.`,
+      'Nên đạt tối thiểu 3 bài/tuần, rồi so sánh engagement theo khung giờ đăng.',
+      10
+    );
+    addAction(
+      'medium',
+      'Tăng nhịp đăng theo tuần',
+      `${postsPerWeek.toFixed(1)} bài/tuần đang thấp hơn baseline vận hành mặc định.`,
+      'Lên kế hoạch 3-5 bài/tuần, sau 14 ngày chạy audit lại.'
+    );
+  } else if (postsPerWeek > 14) {
+    addCheck(
+      'info',
+      'Nhịp đăng bài',
+      `${postsPerWeek.toFixed(1)} bài/tuần có thể quá dày với một số nhóm audience.`,
+      'Kiểm tra engagement/post có giảm không trước khi tăng volume.'
+    );
+    addAction(
+      'medium',
+      'Kiểm tra mật độ đăng bài',
+      'Volume cao có thể che dấu fatigue nếu engagement/post đang giảm.',
+      'So sánh nhóm bài yếu với nhóm bài thắng và giảm các format lặp lại kém hiệu quả.'
+    );
+  } else {
+    addCheck('ok', 'Nhịp đăng bài', `${postsPerWeek.toFixed(1)} bài/tuần nằm trong vùng vận hành ổn.`, 'Dùng pattern của top post để lên batch nội dung tiếp theo.');
+  }
+
+  if (postCount === 0 || avgEngagementPerPost === 0) {
+    addCheck(
+      'warning',
+      'Engagement',
+      'Không có engagement đo được trong khoảng ngày đang chọn từ post metrics local.',
+      'Kiểm tra hook, chất lượng visual, giờ đăng, và liệu khoảng ngày chọn có đủ dữ liệu không.',
+      14
+    );
+    addAction(
+      'high',
+      'Tạo test phục hồi engagement',
+      'Khoảng ngày đang chọn không có engagement local đo được.',
+      'Test 2-3 hook khác nhau, một bài visual-first, và một bài có prompt hỏi/khuyến khích comment.'
+    );
+    if (recentPosts.length === 0 && posts.length > 0) {
+      addDataGap(
+        'info',
+        'Khoảng ngày đang chọn không có bài',
+        `Không tìm thấy post trong ${days} ngày gần nhất, nên nhóm bài thắng dùng lịch sử gần nhất đang có.`
+      );
+    }
+  } else {
+    addCheck(
+      'ok',
+      'Engagement',
+      `Engagement trung bình là ${avgEngagementPerPost.toFixed(1)}/bài; engagement/fans là ${engagementPerFan.toFixed(2)}%.`,
+      'Biến các bài hiệu quả nhất thành content angle có thể lặp lại.'
+    );
+    if (topPosts[0]) {
+      addAction(
+        'medium',
+        'Tái sử dụng content angle tốt nhất',
+        `Bài tốt nhất trong local DB có ${topPosts[0].engagement.toFixed(0)} điểm engagement.`,
+        `Tạo 2 biến thể từ bài: "${topPosts[0].message}"`
+      );
+    }
+  }
+
+  if (commentRows.length > 0) {
+    addCheck(
+      'info',
+      'Quản lý cộng đồng',
+      `Local DB đang có ${commentRows.length} comment của page này.`,
+      'Review thủ công comment chưa trả lời hoặc có intent cao; auto-reply nên giữ thận trọng.'
+    );
+  } else {
+    addCheck(
+      'info',
+      'Quản lý cộng đồng',
+      'Chưa có comment local cho page đang chọn.',
+      'Sync comments hoặc kiểm tra Meta inbox trước khi đánh giá sức khỏe cộng đồng.'
+    );
+    addDataGap('info', 'Độ phủ comment', 'Chưa có comment local, nên sức khỏe cộng đồng có thể bị đánh giá thấp.');
+  }
+
+  if (postingWindows[0]) {
+    addAction(
+      'low',
+      'Dùng khung giờ đăng mạnh nhất',
+      `${postingWindows[0].label} có average engagement cao nhất trong tập post local hiện có.`,
+      `Schedule một bài sắp tới quanh ${postingWindows[0].label} rồi so sánh kết quả.`
+    );
+  }
+
+  addCheck(
+    'info',
+    'Giới hạn tối ưu',
+    'Reach và demographics của Facebook Page hiện chưa khả dụng ổn định trong API flow này.',
+    'Dùng Instagram demographics hoặc Meta Business Suite cho audience planning cho tới khi xác nhận được nguồn Page metrics hỗ trợ.'
+  );
+  addDataGap('info', 'Reach và demographics', 'Metrics reach/demographics của Facebook Page chưa khả dụng trong API flow này.');
+
+  score = Math.max(0, Math.min(100, Math.round(score)));
+  const status = score >= 80 ? 'khỏe' : score >= 60 ? 'cần theo dõi' : 'cần xử lý';
+  recommendedActions.sort((a, b) => {
+    const order = { high: 0, medium: 1, low: 2 };
+    return (order[a.priority] ?? 3) - (order[b.priority] ?? 3);
+  });
+
+  return {
+    page: {
+      id: page.id,
+      name: page.name,
+      fan_count: page.fan_count || 0,
+      followers_count: page.followers_count || 0,
+      portfolio: page.portfolio || ''
+    },
+    days,
+    score,
+    status,
+    metrics: {
+      latest_metric_date: latestMetricDate,
+      latest_post_date: latestPostDate,
+      post_count: postCount,
+      posts_per_week: Number(postsPerWeek.toFixed(2)),
+      total_engagement: totalEngagement,
+      avg_engagement_per_post: Number(avgEngagementPerPost.toFixed(2)),
+      engagement_per_fan_pct: Number(engagementPerFan.toFixed(2)),
+      stored_comments: commentRows.length,
+      content_source: contentSource
+    },
+    checklist: checks,
+    recommended_actions: recommendedActions,
+    content: {
+      source: contentSource,
+      top_posts: topPosts,
+      underperforming_posts: underperformingPosts
+    },
+    posting_windows: postingWindows,
+    data_gaps: dataGaps
+  };
+}
+
+function buildAdsPerformanceReport(db, adAccountId, level = 'campaign', days = 30) {
+  const normalizedLevel = ['campaign', 'adset', 'ad'].includes(level) ? level : 'campaign';
+  const rows = enrichAdInsightRows(db.getAdInsightsSummaryByLevel({
+    adAccountId,
+    level: normalizedLevel,
+    days
+  })).map(row => ({
+    ...row,
+    spend: toNumber(row.spend),
+    impressions: toNumber(row.impressions),
+    reach: toNumber(row.reach),
+    clicks: toNumber(row.clicks),
+    ctr: toNumber(row.ctr),
+    cpc: toNumber(row.cpc),
+    cpm: toNumber(row.cpm),
+    frequency: toNumber(row.frequency),
+    results: toNumber(row.results),
+    cost_per_result: toNumber(row.cost_per_result),
+    purchase_roas: toNumber(row.purchase_roas)
+  }));
+
+  const totals = rows.reduce((acc, row) => {
+    acc.spend += row.spend;
+    acc.impressions += row.impressions;
+    acc.reach += row.reach;
+    acc.clicks += row.clicks;
+    acc.results += row.results;
+    acc.frequency_sum += row.frequency;
+    return acc;
+  }, {
+    spend: 0,
+    impressions: 0,
+    reach: 0,
+    clicks: 0,
+    results: 0,
+    frequency_sum: 0
+  });
+  totals.ctr = totals.impressions > 0 ? (totals.clicks * 100) / totals.impressions : 0;
+  totals.cpc = totals.clicks > 0 ? totals.spend / totals.clicks : 0;
+  totals.cpm = totals.impressions > 0 ? (totals.spend * 1000) / totals.impressions : 0;
+  totals.cost_per_result = totals.results > 0 ? totals.spend / totals.results : 0;
+  totals.avg_frequency = rows.length > 0 ? totals.frequency_sum / rows.length : 0;
+
+  const top = (filter, sorter, limit = 5) => rows
+    .filter(filter)
+    .sort(sorter)
+    .slice(0, limit);
+
+  const avgCpc = totals.cpc || 0;
+  const winners = {
+    top_spend: top(row => row.spend > 0, (a, b) => b.spend - a.spend),
+    best_ctr: top(row => row.clicks > 0, (a, b) => b.ctr - a.ctr),
+    best_cpc: top(row => row.clicks > 0 && row.cpc > 0, (a, b) => a.cpc - b.cpc),
+    best_results: top(row => row.results > 0, (a, b) => b.results - a.results),
+    best_roas: top(row => row.purchase_roas > 0, (a, b) => b.purchase_roas - a.purchase_roas)
+  };
+
+  const losers = {
+    spend_no_clicks: top(row => row.spend > 0 && row.clicks === 0, (a, b) => b.spend - a.spend),
+    low_ctr_spenders: top(row => row.spend > 0 && row.ctr > 0 && row.ctr < 1, (a, b) => b.spend - a.spend),
+    high_cpc: top(row => avgCpc > 0 && row.cpc > avgCpc * 1.5, (a, b) => b.cpc - a.cpc),
+    high_frequency: top(row => row.frequency >= 3, (a, b) => b.frequency - a.frequency),
+    low_roas: top(row => row.spend > 0 && row.purchase_roas > 0 && row.purchase_roas < 1, (a, b) => b.spend - a.spend)
+  };
+
+  return {
+    adAccountId,
+    level: normalizedLevel,
+    days,
+    rows,
+    totals,
+    winners,
+    losers,
+    generated_at: new Date().toISOString()
+  };
+}
+
+function labelBudgetAction(value) {
+  const labels = {
+    inspect: 'Cần kiểm tra',
+    reduce: 'Giảm ngân sách',
+    increase: 'Tăng ngân sách',
+    hold: 'Giữ nguyên'
+  };
+  return labels[String(value || '').toLowerCase()] || value || '';
+}
+
+function labelSeverity(value) {
+  const labels = {
+    high: 'Cao',
+    medium: 'Trung bình',
+    low: 'Thấp',
+    info: 'Thông tin',
+    ok: 'Ổn'
+  };
+  return labels[String(value || '').toLowerCase()] || value || '';
+}
+
+function buildBudgetAuditCsv(report) {
+  const rows = [
+    ['phan', 'muc_do_hoac_trang_thai', 'doi_tuong', 'chi_so_hoac_hanh_dong', 'gia_tri', 'ghi_chu'],
+    ['tong_quan', '', report.account?.name || report.account?.id || '', 'so_ngay', report.days, ''],
+    ['tong_quan', '', report.account?.name || report.account?.id || '', 'chi_tieu', report.totals?.spend || 0, report.account?.currency || ''],
+    ['tong_quan', '', report.account?.name || report.account?.id || '', 'ngan_sach_ngay', report.totals?.daily_budget || 0, report.account?.currency || ''],
+    ['tong_quan', '', report.account?.name || report.account?.id || '', 'muc_dung_pct', report.totals?.utilization || 0, ''],
+    ...(report.recommendations || []).map(item => [
+      'khuyen_nghi',
+      labelSeverity(item.priority),
+      item.ad_set_name || item.ad_set_id,
+      labelBudgetAction(item.recommended_action),
+      item.proposed_daily_budget || item.proposed_lifetime_budget || 0,
+      `${item.rationale || ''} ${item.next_step || ''}`.trim()
+    ]),
+    ...(report.budget_change_drafts || []).map(item => [
+      'ban_nhap_thay_doi_ngan_sach',
+      '',
+      item.ad_set_name || item.ad_set_id,
+      labelBudgetAction(item.recommended_action),
+      item.proposed_daily_budget || item.proposed_lifetime_budget || 0,
+      item.rationale || item.notes || ''
+    ]),
+    ...(report.alerts || []).map(item => [
+      'canh_bao',
+      labelSeverity(item.severity),
+      item.entity_name || item.entity_id,
+      item.title,
+      '',
+      `${item.detail || ''} ${item.action || ''}`.trim()
+    ]),
+    ...(report.budget_snapshots || []).map(item => [
+      'snapshot',
+      '',
+      item.snapshot_date,
+      'chi_tieu/muc_dung',
+      `${item.total_spend || 0}/${item.utilization || 0}%`,
+      `cao=${item.high_alerts || 0}; trung_binh=${item.medium_alerts || 0}; thap=${item.low_alerts || 0}`
+    ])
+  ];
+  return toCsv(rows);
+}
+
+function buildBudgetAuditMarkdown(report) {
+  const currency = report.account?.currency || '';
+  const lines = [
+    `# Audit ngân sách: ${report.account?.name || report.account?.id || 'Ad Account'}`,
+    '',
+    `Cửa sổ dữ liệu: ${report.days} ngày`,
+    `Chi tiêu: ${(report.totals?.spend || 0).toFixed(2)} ${currency}`,
+    `Ngân sách ngày: ${(report.totals?.daily_budget || 0).toFixed(2)} ${currency}`,
+    `Mức dùng ngân sách: ${(report.totals?.utilization || 0).toFixed(1)}%`,
+    '',
+    '## Khuyến nghị',
+    ...((report.recommendations || []).length > 0
+      ? report.recommendations.map(item => `- [${labelSeverity(item.priority)}] ${item.ad_set_name || item.ad_set_id}: ${labelBudgetAction(item.recommended_action)} -> ${item.next_step}`)
+      : ['- Chưa có khuyến nghị ngân sách từ dữ liệu local hiện tại.']),
+    '',
+    '## Bản nháp thay đổi ngân sách',
+    ...((report.budget_change_drafts || []).length > 0
+      ? report.budget_change_drafts.map(item => `- ${item.ad_set_name || item.ad_set_id}: ${labelBudgetAction(item.recommended_action)} -> ${item.proposed_daily_budget || item.proposed_lifetime_budget || 0} ${currency}`)
+      : ['- Chưa có bản nháp thay đổi ngân sách local.']),
+    '',
+    '## Cảnh báo',
+    ...((report.alerts || []).length > 0
+      ? report.alerts.map(item => `- [${labelSeverity(item.severity)}] ${item.entity_name || item.entity_id}: ${item.title}. ${item.action || ''}`)
+      : ['- Không có cảnh báo ngân sách.']),
+    '',
+    '## Snapshots',
+    ...((report.budget_snapshots || []).length > 0
+      ? report.budget_snapshots.map(item => `- ${item.snapshot_date}: chi tiêu ${Number(item.total_spend || 0).toFixed(2)} ${currency}, mức dùng ${Number(item.utilization || 0).toFixed(1)}%`)
+      : ['- Chưa có snapshot ngân sách đã lưu.'])
+  ];
+  return lines.join('\n');
+}
+
+function buildHealthAuditCsv(audit) {
+  const rows = [
+    ['section', 'priority_or_severity', 'title_or_label', 'detail', 'action_or_value'],
+    ['summary', audit.status, audit.page.name, 'score', audit.score],
+    ['summary', '', 'posts_per_week', '', audit.metrics.posts_per_week],
+    ['summary', '', 'avg_engagement_per_post', '', audit.metrics.avg_engagement_per_post],
+    ...audit.recommended_actions.map(item => [
+      'recommended_action',
+      item.priority,
+      item.title,
+      item.rationale,
+      item.next_step
+    ]),
+    ...audit.checklist.map(item => [
+      'checklist',
+      item.severity,
+      item.title,
+      item.detail,
+      item.action
+    ]),
+    ...audit.content.top_posts.map(item => [
+      'top_post',
+      '',
+      item.id,
+      item.message,
+      item.engagement
+    ]),
+    ...audit.posting_windows.map(item => [
+      'posting_window',
+      '',
+      item.label,
+      'avg_engagement',
+      item.avg_engagement
+    ]),
+    ...audit.data_gaps.map(item => [
+      'data_gap',
+      item.severity,
+      item.title,
+      item.detail,
+      ''
+    ])
+  ];
+  return toCsv(rows);
+}
+
+function buildHealthAuditMarkdown(audit) {
+  const lines = [
+    `# Audit sức khỏe Page: ${audit.page.name}`,
+    '',
+    `Điểm: ${audit.score}/100 (${audit.status})`,
+    `Cửa sổ dữ liệu: ${audit.days} ngày`,
+    '',
+    '## Hành động khuyến nghị',
+    ...(audit.recommended_actions.length > 0
+      ? audit.recommended_actions.map(item => `- [${item.priority}] ${item.title}: ${item.next_step}`)
+      : ['- Chưa có hành động khuyến nghị.']),
+    '',
+    '## Nội dung hiệu quả',
+    ...(audit.content.top_posts.length > 0
+      ? audit.content.top_posts.map(item => `- ${item.engagement} engagement: ${item.message}`)
+      : ['- Chưa có bài viết đủ dữ liệu để xếp hạng.']),
+    '',
+    '## Khung giờ đăng tốt nhất',
+    ...(audit.posting_windows.length > 0
+      ? audit.posting_windows.map(item => `- ${item.label}: ${item.avg_engagement.toFixed(1)} avg engagement`)
+      : ['- Chưa đủ dữ liệu khung giờ đăng.']),
+    '',
+    '## Checklist',
+    ...audit.checklist.map(item => `- [${item.severity}] ${item.title}: ${item.action}`),
+    '',
+    '## Khoảng trống dữ liệu',
+    ...(audit.data_gaps.length > 0
+      ? audit.data_gaps.map(item => `- [${item.severity}] ${item.title}: ${item.detail}`)
+      : ['- Không có khoảng trống dữ liệu được đánh dấu.'])
+  ];
+  return lines.join('\n');
+}
+
+function duplicateAdDraftRecord(db, ad, overrides = {}) {
+  return db.createAdDraft({
+    id: overrides.id || makeDraftId('addraft'),
+    ad_set_draft_id: overrides.ad_set_draft_id || ad.ad_set_draft_id,
+    campaign_draft_id: overrides.campaign_draft_id || ad.campaign_draft_id,
+    ad_account_id: overrides.ad_account_id || ad.ad_account_id,
+    name: overrides.name || `${ad.name || 'Ad Draft'} - Bản sao`,
+    page_id: ad.page_id,
+    instagram_account_id: ad.instagram_account_id,
+    creative_name: ad.creative_name,
+    message: ad.message,
+    headline: ad.headline,
+    description: ad.description,
+    call_to_action: ad.call_to_action,
+    asset_url: ad.asset_url,
+    asset_type: ad.asset_type,
+    destination_url: ad.destination_url,
+    meta_status: overrides.meta_status || ad.meta_status || 'PAUSED',
+    notes: ad.notes
+  });
+}
+
+function duplicateAdSetDraftRecord(db, adSet, overrides = {}) {
+  const copiedAdSet = db.createAdSetDraft({
+    id: overrides.id || makeDraftId('adsetdraft'),
+    campaign_draft_id: overrides.campaign_draft_id || adSet.campaign_draft_id,
+    ad_account_id: overrides.ad_account_id || adSet.ad_account_id,
+    name: overrides.name || `${adSet.name || 'Ad Set Draft'} - Bản sao`,
+    optimization_goal: adSet.optimization_goal,
+    billing_event: adSet.billing_event,
+    bid_strategy: adSet.bid_strategy,
+    destination_type: adSet.destination_type,
+    targeting: parseJsonSafe(adSet.targeting_json, {}),
+    daily_budget: adSet.daily_budget,
+    lifetime_budget: adSet.lifetime_budget,
+    start_time: adSet.start_time,
+    end_time: adSet.end_time,
+    meta_status: overrides.meta_status || adSet.meta_status || 'PAUSED',
+    notes: adSet.notes
+  });
+
+  const ads = db.getAdDraftsByAdSet(adSet.id);
+  ads.forEach(ad => duplicateAdDraftRecord(db, ad, {
+    ad_set_draft_id: copiedAdSet.id,
+    campaign_draft_id: copiedAdSet.campaign_draft_id,
+    ad_account_id: copiedAdSet.ad_account_id
+  }));
+
+  return copiedAdSet;
+}
+
+function duplicateCampaignDraftRecord(db, campaign) {
+  const copiedCampaign = db.createCampaignDraft({
+    id: makeDraftId('campdraft'),
+    ad_account_id: campaign.ad_account_id,
+    name: `${campaign.name || 'Campaign Draft'} - Bản sao`,
+    objective: campaign.objective,
+    buying_type: campaign.buying_type,
+    daily_budget: campaign.daily_budget,
+    lifetime_budget: campaign.lifetime_budget,
+    meta_status: campaign.meta_status || 'PAUSED',
+    notes: campaign.notes,
+    special_ad_categories: parseJsonSafe(campaign.special_ad_categories, [])
+  });
+
+  const adSets = db.getAdSetDraftsByCampaign(campaign.id);
+  adSets.forEach(adSet => duplicateAdSetDraftRecord(db, adSet, {
+    campaign_draft_id: copiedCampaign.id,
+    ad_account_id: copiedCampaign.ad_account_id
+  }));
+
+  return copiedCampaign;
+}
+
 function parseScheduledTime(value) {
   if (!value) {
     return null;
@@ -238,6 +951,22 @@ class Server {
       return false;
     }
 
+    if (/^\/api\/ads\/drafts\/(?:campaigns|adsets|ads)\/[^/]+\/publish$/.test(req.path)) {
+      return true;
+    }
+
+    if (/^\/api\/ads\/drafts(?:\/.*)?$/.test(req.path)) {
+      return false;
+    }
+
+    if (/^\/api\/ads\/budget-change-drafts(?:\/.*)?$/.test(req.path)) {
+      return false;
+    }
+
+    if (/^\/api\/ads\/accounts\/[^/]+\/budget-snapshot$/.test(req.path)) {
+      return false;
+    }
+
     if (/^\/api\/ads\/accounts\/[^/]+\/sync$/.test(req.path)) {
       return false;
     }
@@ -292,6 +1021,251 @@ class Server {
         client.send(message);
       }
     });
+  }
+
+  normalizeAdPublishStatus(value, fallback = 'PAUSED') {
+    const normalized = String(value || fallback || 'PAUSED').toUpperCase();
+    return ['PAUSED', 'ACTIVE'].includes(normalized) ? normalized : 'PAUSED';
+  }
+
+  getAdsPortfolioForAccount(adAccountId) {
+    const account = this.db.getAdAccounts().find(item => item.id === adAccountId);
+    if (!account) {
+      const error = new Error('Không tìm thấy ad account trong local DB.');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const portfolioNames = String(account.portfolio || '')
+      .split(',')
+      .map(item => item.trim())
+      .filter(Boolean);
+    const matchedPortfolio = config.portfolios.find(portfolio => (
+      portfolio.token && portfolioNames.includes(portfolio.name)
+    )) || config.portfolios.find(portfolio => portfolio.token);
+
+    if (!matchedPortfolio) {
+      const error = new Error('Không có token portfolio khả dụng để publish Ads.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    return { account, portfolio: matchedPortfolio, api: new MetaAdsAPI(matchedPortfolio.token) };
+  }
+
+  parseAdSetTargeting(adSetDraft) {
+    const targeting = parseJsonSafe(adSetDraft.targeting_json, {});
+    if (!targeting || Object.keys(targeting).length === 0) {
+      const error = new Error('Ad set draft cần targeting trước khi publish lên Meta.');
+      error.statusCode = 400;
+      throw error;
+    }
+    return targeting;
+  }
+
+  async publishCampaignDraft(id, statusOverride = '') {
+    const draft = this.db.getCampaignDraft(id);
+    if (!draft) {
+      const error = new Error('Không tìm thấy campaign draft.');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    if (draft.meta_campaign_id) {
+      return {
+        draft,
+        meta: { alreadyPublished: true },
+        result: { campaign_id: draft.meta_campaign_id }
+      };
+    }
+
+    const { account, api } = this.getAdsPortfolioForAccount(draft.ad_account_id);
+    const metaStatus = this.normalizeAdPublishStatus(statusOverride, draft.meta_status);
+
+    try {
+      const result = await api.createCampaign(draft.ad_account_id, {
+        ...draft,
+        meta_status: metaStatus,
+        special_ad_categories: parseJsonSafe(draft.special_ad_categories, [])
+      }, {
+        currency: account.currency,
+        status: metaStatus
+      });
+
+      this.db.saveCampaign({
+        id: result.id,
+        ad_account_id: draft.ad_account_id,
+        name: draft.name || result.id,
+        status: metaStatus,
+        effective_status: metaStatus,
+        objective: draft.objective || '',
+        buying_type: draft.buying_type || '',
+        start_time: null,
+        stop_time: null
+      });
+
+      const updatedDraft = this.db.markCampaignDraftPublished(id, result.id);
+      return {
+        draft: updatedDraft,
+        meta: { alreadyPublished: false },
+        result: { campaign_id: result.id }
+      };
+    } catch (error) {
+      this.db.markCampaignDraftPublishError(id, error.message);
+      throw error;
+    }
+  }
+
+  async publishAdSetDraft(id, statusOverride = '') {
+    const draft = this.db.getAdSetDraft(id);
+    if (!draft) {
+      const error = new Error('Không tìm thấy ad set draft.');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    if (draft.meta_ad_set_id) {
+      return {
+        draft,
+        meta: { alreadyPublished: true },
+        result: { ad_set_id: draft.meta_ad_set_id }
+      };
+    }
+
+    const campaign = this.db.getCampaignDraft(draft.campaign_draft_id);
+    if (!campaign) {
+      const error = new Error('Không tìm thấy campaign draft cha.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const campaignPublish = await this.publishCampaignDraft(campaign.id, statusOverride || draft.meta_status);
+    const campaignId = campaignPublish.result.campaign_id;
+    const { account, api } = this.getAdsPortfolioForAccount(draft.ad_account_id);
+    const metaStatus = this.normalizeAdPublishStatus(statusOverride, draft.meta_status);
+    const targeting = this.parseAdSetTargeting(draft);
+
+    try {
+      const result = await api.createAdSet(draft.ad_account_id, {
+        ...draft,
+        targeting,
+        meta_status: metaStatus
+      }, campaignId, {
+        currency: account.currency,
+        status: metaStatus
+      });
+
+      this.db.saveAdSet({
+        id: result.id,
+        ad_account_id: draft.ad_account_id,
+        campaign_id: campaignId,
+        name: draft.name || result.id,
+        status: metaStatus,
+        effective_status: metaStatus,
+        optimization_goal: draft.optimization_goal || '',
+        billing_event: draft.billing_event || '',
+        bid_strategy: draft.bid_strategy || '',
+        daily_budget: api.toApiBudgetAmount(draft.daily_budget, account.currency) || null,
+        lifetime_budget: api.toApiBudgetAmount(draft.lifetime_budget, account.currency) || null,
+        start_time: draft.start_time || null,
+        end_time: draft.end_time || null
+      });
+
+      const updatedDraft = this.db.markAdSetDraftPublished(id, result.id);
+      return {
+        draft: updatedDraft,
+        campaign: campaignPublish,
+        meta: { alreadyPublished: false },
+        result: {
+          campaign_id: campaignId,
+          ad_set_id: result.id
+        }
+      };
+    } catch (error) {
+      this.db.markAdSetDraftPublishError(id, error.message);
+      throw error;
+    }
+  }
+
+  async publishAdDraft(id, statusOverride = '') {
+    const draft = this.db.getAdDraft(id);
+    if (!draft) {
+      const error = new Error('Không tìm thấy ad draft.');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    if (draft.meta_ad_id) {
+      return {
+        draft,
+        meta: { alreadyPublished: true },
+        result: {
+          ad_id: draft.meta_ad_id,
+          creative_id: draft.meta_creative_id || null
+        }
+      };
+    }
+
+    if (!draft.page_id) {
+      const error = new Error('Ad draft cần chọn Page trước khi publish.');
+      error.statusCode = 400;
+      throw error;
+    }
+    if (!draft.destination_url) {
+      const error = new Error('Ad draft cần URL đích trước khi publish.');
+      error.statusCode = 400;
+      throw error;
+    }
+    if (draft.asset_type === 'video') {
+      const error = new Error('Publish video creative chưa được hỗ trợ trong flow này. Hãy dùng image/link asset trước.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const adSetPublish = await this.publishAdSetDraft(draft.ad_set_draft_id, statusOverride || draft.meta_status);
+    const adSetId = adSetPublish.result.ad_set_id;
+    const { api } = this.getAdsPortfolioForAccount(draft.ad_account_id);
+    const metaStatus = this.normalizeAdPublishStatus(statusOverride, draft.meta_status);
+
+    try {
+      const creative = await api.createAdCreative(draft.ad_account_id, {
+        ...draft,
+        meta_status: metaStatus
+      });
+      const ad = await api.createAd(draft.ad_account_id, {
+        ...draft,
+        meta_status: metaStatus
+      }, adSetId, creative.id, {
+        status: metaStatus
+      });
+
+      this.db.saveAd({
+        id: ad.id,
+        ad_account_id: draft.ad_account_id,
+        campaign_id: adSetPublish.result.campaign_id || null,
+        ad_set_id: adSetId,
+        name: draft.name || ad.id,
+        status: metaStatus,
+        effective_status: metaStatus,
+        creative_id: creative.id
+      });
+
+      const updatedDraft = this.db.markAdDraftPublished(id, ad.id, creative.id);
+      return {
+        draft: updatedDraft,
+        adSet: adSetPublish,
+        meta: { alreadyPublished: false },
+        result: {
+          campaign_id: adSetPublish.result.campaign_id || null,
+          ad_set_id: adSetId,
+          creative_id: creative.id,
+          ad_id: ad.id
+        }
+      };
+    } catch (error) {
+      this.db.markAdDraftPublishError(id, error.message);
+      throw error;
+    }
   }
 
   setupRoutes() {
@@ -674,8 +1648,9 @@ class Server {
             days,
             campaignId
           });
+      const enrichedInsights = enrichAdInsightRows(insights);
 
-      const meta = insights.length === 0
+      const meta = enrichedInsights.length === 0
         ? {
             supported: false,
             level,
@@ -691,7 +1666,7 @@ class Server {
             adAccountId: id
           };
 
-      res.json({ data: insights, meta });
+      res.json({ data: enrichedInsights, meta });
     });
 
     this.app.get('/api/ads/accounts/:id/insights-summary', (req, res) => {
@@ -700,12 +1675,12 @@ class Server {
       const level = req.query.level || 'campaign';
       const campaignId = req.query.campaign_id || null;
 
-      const rows = this.db.getAdInsightsSummaryByLevel({
+      const rows = enrichAdInsightRows(this.db.getAdInsightsSummaryByLevel({
         adAccountId: id,
         level,
         days,
         campaignId
-      });
+      }));
 
       const meta = rows.length === 0
         ? {
@@ -723,6 +1698,367 @@ class Server {
           };
 
       res.json({ data: rows, meta });
+    });
+
+    this.app.get('/api/ads/accounts/:id/budget-report', (req, res) => {
+      const { id } = req.params;
+      const days = normalizeDays(req.query.days, config.ads.defaultDays);
+      const report = this.db.getAdBudgetReport(id, days);
+      if (!report) {
+        return res.status(404).json({ error: 'Ad account not found' });
+      }
+      res.json({ data: report });
+    });
+
+    this.app.post('/api/ads/accounts/:id/budget-snapshot', express.json(), (req, res) => {
+      try {
+        const { id } = req.params;
+        const days = normalizeDays(req.body?.days || req.query.days, config.ads.defaultDays);
+        const report = this.db.getAdBudgetReport(id, days);
+        if (!report) {
+          return res.status(404).json({ error: 'Ad account not found' });
+        }
+        const snapshot = this.db.saveAdBudgetSnapshot(report);
+        res.json({ data: snapshot, meta: { localOnly: true } });
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    this.app.post('/api/ads/budget-change-drafts', express.json(), (req, res) => {
+      try {
+        const body = req.body || {};
+        if (!body.ad_account_id || !body.ad_set_id) {
+          return res.status(400).json({ error: 'Ad account and ad set are required.' });
+        }
+
+        const account = this.db.getAdAccounts().find(item => item.id === body.ad_account_id);
+        if (!account) {
+          return res.status(404).json({ error: 'Ad account not found.' });
+        }
+
+        const draft = this.db.createBudgetChangeDraft({
+          id: makeDraftId('budgetdraft'),
+          ad_account_id: body.ad_account_id,
+          ad_set_id: body.ad_set_id,
+          ad_set_name: body.ad_set_name,
+          current_daily_budget: body.current_daily_budget,
+          current_lifetime_budget: body.current_lifetime_budget,
+          proposed_daily_budget: body.proposed_daily_budget,
+          proposed_lifetime_budget: body.proposed_lifetime_budget,
+          recommended_action: body.recommended_action,
+          rationale: body.rationale,
+          notes: body.notes || body.next_step || ''
+        });
+
+        res.json({ data: draft, meta: { draftOnly: true, localOnly: true } });
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    this.app.delete('/api/ads/budget-change-drafts/:id', (req, res) => {
+      const deleted = this.db.deleteBudgetChangeDraft(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: 'Không tìm thấy bản nháp thay đổi ngân sách.' });
+      }
+      res.json({ data: { deleted: true }, meta: { draftOnly: true, localOnly: true } });
+    });
+
+    this.app.get('/api/export/ads/accounts/:id/budget-audit.csv', (req, res) => {
+      const { id } = req.params;
+      const days = normalizeDays(req.query.days, config.ads.defaultDays);
+      const report = this.db.getAdBudgetReport(id, days);
+      if (!report) {
+        return res.status(404).json({ error: 'Ad account not found' });
+      }
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="ads-budget-audit-${id}-${days}d.csv"`);
+      res.send(buildBudgetAuditCsv(report));
+    });
+
+    this.app.get('/api/export/ads/accounts/:id/budget-audit.md', (req, res) => {
+      const { id } = req.params;
+      const days = normalizeDays(req.query.days, config.ads.defaultDays);
+      const report = this.db.getAdBudgetReport(id, days);
+      if (!report) {
+        return res.status(404).json({ error: 'Ad account not found' });
+      }
+      res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="ads-budget-audit-${id}-${days}d.md"`);
+      res.send(buildBudgetAuditMarkdown(report));
+    });
+
+    this.app.get('/api/ads/accounts/:id/performance-report', (req, res) => {
+      const { id } = req.params;
+      const days = normalizeDays(req.query.days, config.ads.defaultDays);
+      const level = req.query.level || 'campaign';
+      const report = buildAdsPerformanceReport(this.db, id, level, days);
+      res.json({ data: report });
+    });
+
+    this.app.get('/api/ads/drafts', (req, res) => {
+      const adAccountId = String(req.query.ad_account_id || '').trim() || null;
+      const drafts = this.db.getAdDrafts(adAccountId);
+      res.json({ data: drafts, meta: { draftOnly: true } });
+    });
+
+    this.app.post('/api/ads/drafts/assets', upload.single('assetFile'), async (req, res) => {
+      try {
+        if (!req.file) {
+          return res.status(400).json({ error: 'Please choose an asset file.' });
+        }
+        if (!CloudinaryService.isConfigured()) {
+          return res.status(400).json({ error: 'Cloudinary is not configured for draft asset uploads.' });
+        }
+
+        const uploadResult = await CloudinaryService.uploadLocalFile(req.file, {
+          resourceType: 'auto'
+        });
+        const assetType = String(uploadResult.resource_type || '').includes('video') ? 'video' : 'image';
+        res.json({
+          data: {
+            asset_url: uploadResult.secure_url,
+            asset_type: assetType,
+            public_id: uploadResult.public_id,
+            bytes: uploadResult.bytes
+          },
+          meta: { draftOnly: true }
+        });
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    this.app.post('/api/ads/drafts/campaigns', express.json(), (req, res) => {
+      try {
+        const body = req.body || {};
+        if (!body.ad_account_id || !body.name) {
+          return res.status(400).json({ error: 'Ad account and campaign name are required.' });
+        }
+
+        const account = this.db.getAdAccounts().find(item => item.id === body.ad_account_id);
+        if (!account) {
+          return res.status(404).json({ error: 'Ad account not found.' });
+        }
+
+        const draft = this.db.createCampaignDraft({
+          id: makeDraftId('campdraft'),
+          ad_account_id: body.ad_account_id,
+          name: String(body.name).trim(),
+          objective: body.objective,
+          buying_type: body.buying_type,
+          daily_budget: body.daily_budget,
+          lifetime_budget: body.lifetime_budget,
+          meta_status: body.meta_status,
+          notes: body.notes,
+          special_ad_categories: body.special_ad_categories || []
+        });
+
+        res.json({ data: draft, meta: { draftOnly: true } });
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    this.app.put('/api/ads/drafts/campaigns/:id', express.json(), (req, res) => {
+      try {
+        const draft = this.db.updateCampaignDraft(req.params.id, req.body || {});
+        if (!draft) {
+          return res.status(404).json({ error: 'Campaign draft not found.' });
+        }
+        res.json({ data: draft, meta: { draftOnly: true } });
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    this.app.delete('/api/ads/drafts/campaigns/:id', (req, res) => {
+      const deleted = this.db.deleteCampaignDraft(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: 'Campaign draft not found.' });
+      }
+      res.json({ data: { deleted: true }, meta: { draftOnly: true } });
+    });
+
+    this.app.post('/api/ads/drafts/campaigns/:id/duplicate', (req, res) => {
+      try {
+        const campaign = this.db.getCampaignDraft(req.params.id);
+        if (!campaign) {
+          return res.status(404).json({ error: 'Campaign draft not found.' });
+        }
+        const draft = duplicateCampaignDraftRecord(this.db, campaign);
+        res.json({ data: draft, meta: { draftOnly: true } });
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    this.app.post('/api/ads/drafts/campaigns/:id/publish', express.json(), async (req, res) => {
+      try {
+        const result = await this.publishCampaignDraft(req.params.id, req.body?.meta_status);
+        res.json({ data: result, meta: { liveMetaMutation: true } });
+      } catch (error) {
+        res.status(error.statusCode || 500).json({ error: error.message });
+      }
+    });
+
+    this.app.post('/api/ads/drafts/adsets', express.json(), (req, res) => {
+      try {
+        const body = req.body || {};
+        if (!body.campaign_draft_id || !body.name) {
+          return res.status(400).json({ error: 'Campaign draft and ad set name are required.' });
+        }
+
+        const campaign = this.db.getCampaignDraft(body.campaign_draft_id);
+        if (!campaign) {
+          return res.status(404).json({ error: 'Campaign draft not found.' });
+        }
+
+        const draft = this.db.createAdSetDraft({
+          id: makeDraftId('adsetdraft'),
+          campaign_draft_id: body.campaign_draft_id,
+          ad_account_id: campaign.ad_account_id,
+          name: String(body.name).trim(),
+          optimization_goal: body.optimization_goal,
+          billing_event: body.billing_event,
+          bid_strategy: body.bid_strategy,
+          destination_type: body.destination_type,
+          targeting: body.targeting || {},
+          daily_budget: body.daily_budget,
+          lifetime_budget: body.lifetime_budget,
+          start_time: body.start_time,
+          end_time: body.end_time,
+          meta_status: body.meta_status,
+          notes: body.notes
+        });
+
+        res.json({ data: draft, meta: { draftOnly: true } });
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    this.app.put('/api/ads/drafts/adsets/:id', express.json(), (req, res) => {
+      try {
+        const draft = this.db.updateAdSetDraft(req.params.id, req.body || {});
+        if (!draft) {
+          return res.status(404).json({ error: 'Ad set draft not found.' });
+        }
+        res.json({ data: draft, meta: { draftOnly: true } });
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    this.app.delete('/api/ads/drafts/adsets/:id', (req, res) => {
+      const deleted = this.db.deleteAdSetDraft(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: 'Ad set draft not found.' });
+      }
+      res.json({ data: { deleted: true }, meta: { draftOnly: true } });
+    });
+
+    this.app.post('/api/ads/drafts/adsets/:id/duplicate', (req, res) => {
+      try {
+        const adSet = this.db.getAdSetDraft(req.params.id);
+        if (!adSet) {
+          return res.status(404).json({ error: 'Ad set draft not found.' });
+        }
+        const draft = duplicateAdSetDraftRecord(this.db, adSet);
+        res.json({ data: draft, meta: { draftOnly: true } });
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    this.app.post('/api/ads/drafts/adsets/:id/publish', express.json(), async (req, res) => {
+      try {
+        const result = await this.publishAdSetDraft(req.params.id, req.body?.meta_status);
+        res.json({ data: result, meta: { liveMetaMutation: true } });
+      } catch (error) {
+        res.status(error.statusCode || 500).json({ error: error.message });
+      }
+    });
+
+    this.app.post('/api/ads/drafts/ads', express.json(), (req, res) => {
+      try {
+        const body = req.body || {};
+        if (!body.ad_set_draft_id || !body.name) {
+          return res.status(400).json({ error: 'Ad set draft and ad name are required.' });
+        }
+
+        const adSet = this.db.getAdSetDraft(body.ad_set_draft_id);
+        if (!adSet) {
+          return res.status(404).json({ error: 'Ad set draft not found.' });
+        }
+
+        const draft = this.db.createAdDraft({
+          id: makeDraftId('addraft'),
+          ad_set_draft_id: body.ad_set_draft_id,
+          campaign_draft_id: adSet.campaign_draft_id,
+          ad_account_id: adSet.ad_account_id,
+          name: String(body.name).trim(),
+          page_id: body.page_id,
+          instagram_account_id: body.instagram_account_id,
+          creative_name: body.creative_name,
+          message: body.message,
+          headline: body.headline,
+          description: body.description,
+          call_to_action: body.call_to_action,
+          asset_url: body.asset_url,
+          asset_type: body.asset_type,
+          destination_url: body.destination_url,
+          meta_status: body.meta_status,
+          notes: body.notes
+        });
+
+        res.json({ data: draft, meta: { draftOnly: true } });
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    this.app.put('/api/ads/drafts/ads/:id', express.json(), (req, res) => {
+      try {
+        const draft = this.db.updateAdDraft(req.params.id, req.body || {});
+        if (!draft) {
+          return res.status(404).json({ error: 'Ad draft not found.' });
+        }
+        res.json({ data: draft, meta: { draftOnly: true } });
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    this.app.delete('/api/ads/drafts/ads/:id', (req, res) => {
+      const deleted = this.db.deleteAdDraft(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: 'Ad draft not found.' });
+      }
+      res.json({ data: { deleted: true }, meta: { draftOnly: true } });
+    });
+
+    this.app.post('/api/ads/drafts/ads/:id/duplicate', (req, res) => {
+      try {
+        const ad = this.db.getAdDraft(req.params.id);
+        if (!ad) {
+          return res.status(404).json({ error: 'Ad draft not found.' });
+        }
+        const draft = duplicateAdDraftRecord(this.db, ad);
+        res.json({ data: draft, meta: { draftOnly: true } });
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    this.app.post('/api/ads/drafts/ads/:id/publish', express.json(), async (req, res) => {
+      try {
+        const result = await this.publishAdDraft(req.params.id, req.body?.meta_status);
+        res.json({ data: result, meta: { liveMetaMutation: true } });
+      } catch (error) {
+        res.status(error.statusCode || 500).json({ error: error.message });
+      }
     });
 
     // ========== INSTAGRAM REPORTING ==========
@@ -1158,7 +2494,7 @@ class Server {
       const level = req.query.level || 'account';
       const campaignId = req.query.campaign_id || null;
 
-      const rows = level === 'account'
+      const rows = enrichAdInsightRows(level === 'account'
         ? this.db.getAdInsights({
             adAccountId: id,
             level,
@@ -1170,10 +2506,10 @@ class Server {
             level,
             days,
             campaignId
-          });
+          }));
 
       const csv = toCsv([
-        ['ad_account_id', 'level', 'data_grain', 'sync_window_days', 'account_name', 'entity_id', 'entity_name', 'campaign_id', 'campaign_name', 'ad_set_id', 'ad_set_name', 'ad_id', 'ad_name', 'date_start', 'date_stop', 'impressions', 'reach', 'clicks', 'ctr', 'cpc', 'cpm', 'spend', 'frequency'],
+        ['ad_account_id', 'level', 'data_grain', 'sync_window_days', 'account_name', 'entity_id', 'entity_name', 'campaign_id', 'campaign_name', 'ad_set_id', 'ad_set_name', 'ad_id', 'ad_name', 'date_start', 'date_stop', 'impressions', 'reach', 'clicks', 'results', 'result_action_type', 'cost_per_result', 'ctr', 'cpc', 'cpm', 'spend', 'frequency', 'outbound_clicks', 'inline_link_clicks', 'unique_clicks', 'purchase_roas'],
         ...rows.map(row => [
           row.ad_account_id || id,
           row.level || level,
@@ -1193,11 +2529,18 @@ class Server {
           row.impressions || 0,
           row.reach || 0,
           row.clicks || 0,
+          row.results || 0,
+          row.result_action_type || '',
+          row.cost_per_result || 0,
           row.ctr || 0,
           row.cpc || 0,
           row.cpm || 0,
           row.spend || 0,
-          row.frequency || 0
+          row.frequency || 0,
+          row.outbound_clicks || 0,
+          row.inline_link_clicks || 0,
+          row.unique_clicks || 0,
+          row.purchase_roas || 0
         ])
       ]);
 
@@ -1252,6 +2595,71 @@ class Server {
       }).sort((a, b) => b.totalEngagements - a.totalEngagements);
 
       res.json({ data, days });
+    });
+
+    this.app.get('/api/pages/:id/health-audit', (req, res) => {
+      try {
+        const { id } = req.params;
+        const days = normalizeDays(req.query.days, 30);
+        const page = this.db.getPages().find(item => item.id === id);
+        if (!page) {
+          return res.status(404).json({ error: 'Page not found' });
+        }
+
+        const audit = buildPageHealthAudit({
+          page,
+          metrics: this.db.getPageMetrics(id, days),
+          posts: this.db.getPostsByPage(id),
+          comments: this.db.getAllCommentsByPage(id),
+          days
+        });
+
+        res.json({ data: audit, meta: { auditOnly: true } });
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    this.app.get('/api/export/pages/:id/health-audit.csv', (req, res) => {
+      const { id } = req.params;
+      const days = normalizeDays(req.query.days, 30);
+      const page = this.db.getPages().find(item => item.id === id);
+      if (!page) {
+        return res.status(404).json({ error: 'Page not found' });
+      }
+
+      const audit = buildPageHealthAudit({
+        page,
+        metrics: this.db.getPageMetrics(id, days),
+        posts: this.db.getPostsByPage(id),
+        comments: this.db.getAllCommentsByPage(id),
+        days
+      });
+
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="page-health-${id}.csv"`);
+      res.send(buildHealthAuditCsv(audit));
+    });
+
+    this.app.get('/api/export/pages/:id/health-audit.md', (req, res) => {
+      const { id } = req.params;
+      const days = normalizeDays(req.query.days, 30);
+      const page = this.db.getPages().find(item => item.id === id);
+      if (!page) {
+        return res.status(404).json({ error: 'Page not found' });
+      }
+
+      const audit = buildPageHealthAudit({
+        page,
+        metrics: this.db.getPageMetrics(id, days),
+        posts: this.db.getPostsByPage(id),
+        comments: this.db.getAllCommentsByPage(id),
+        days
+      });
+
+      res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="page-health-${id}.md"`);
+      res.send(buildHealthAuditMarkdown(audit));
     });
 
     // Health check

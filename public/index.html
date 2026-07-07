@@ -8,11 +8,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/style.css?v=12">
+  <link rel="stylesheet" href="/css/style.css?v=18">
   <!-- Chart.js: local copy, no CDN dependency -->
   <script src="/js/vendor/chart.min.js" defer></script>
   <!-- All app JS: 10 files bundled + minified into 1 (39% smaller) -->
-  <script src="/dist/bundle.min.js?v=12" defer></script>
+  <script src="/dist/bundle.min.js?v=18" defer></script>
 </head>
 <body>
   <header class="header">
@@ -482,6 +482,16 @@
           </div>
 
           <div class="action-card">
+            <h3>Kiểm tra sức khỏe Page <span class="chart-badge chart-badge-local">Checklist</span></h3>
+            <div class="form-group">
+              <button id="pageHealthAuditBtn" class="btn btn-primary">Chạy Audit</button>
+              <button id="pageHealthExportCsvBtn" class="btn btn-secondary">Xuất CSV</button>
+              <button id="pageHealthExportMdBtn" class="btn btn-secondary">Xuất Markdown</button>
+            </div>
+            <div id="pageHealthAuditBox" class="result-box">Chọn page rồi chạy audit để xem sức khỏe và checklist tối ưu.</div>
+          </div>
+
+          <div class="action-card">
             <h3>Page Comparison <span class="chart-badge chart-badge-cross">Cross-page</span></h3>
             <p class="section-description">So sánh hiệu suất các page trong cùng khoảng ngày. Cột Eng/Fans (%) được tính bằng total post engagements chia cho current fan count, không phải reach-based engagement rate.</p>
             <div class="chart-wrapper" style="height: 320px;"><canvas id="pageComparisonChart"></canvas></div>
@@ -593,7 +603,7 @@
         <div class="tab-content" id="ads-tab">
           <div class="section-header">
             <h2>Ads Reporting</h2>
-            <p class="section-description">Theo dõi ad accounts, campaign inventory và hiệu suất Ads từ Meta Marketing API</p>
+            <p class="section-description">Theo dõi ad account, danh sách campaign và hiệu suất Ads từ Meta Marketing API</p>
           </div>
 
           <div class="action-card">
@@ -616,41 +626,245 @@
               <select id="adsLevelSelect">
                 <option value="account">Account</option>
                 <option value="campaign" selected>Campaign</option>
-                <option value="adset">Ad Set</option>
+                <option value="adset">Nhóm quảng cáo</option>
                 <option value="ad">Ad</option>
               </select>
             </div>
             <div class="form-group">
-              <button id="adsRefreshBtn" class="btn btn-secondary">Refresh Ads</button>
-              <button id="adsSyncBtn" class="btn btn-primary">Sync Ads</button>
-              <button id="adsExportBtn" class="btn btn-secondary">Export Ads CSV</button>
+              <button id="adsRefreshBtn" class="btn btn-secondary">Làm mới Ads</button>
+              <button id="adsSyncBtn" class="btn btn-primary">Đồng bộ Ads</button>
+              <button id="adsExportBtn" class="btn btn-secondary">Xuất CSV Ads</button>
             </div>
             <div class="ads-context-bar" id="adsContextBar">
               <span class="ads-context-empty">Chưa chọn ad account.</span>
             </div>
-            <div id="adsLevelHelp" class="info-box" style="margin-top: 12px;">Summary cards và 2 trend chart phía trên luôn là account-level. Mức xem chỉ đổi phần breakdown bên dưới: inventory, performance table và export CSV.</div>
-            <div id="adsStatusBox" class="result-box">Tab Ads sẵn sàng. Hãy chọn ad account hoặc bấm refresh.</div>
+            <div id="adsLevelHelp" class="info-box" style="margin-top: 12px;">Các thẻ tổng quan và 2 biểu đồ xu hướng phía trên luôn ở mức toàn account. Mức xem chỉ đổi phần phân tích bên dưới: danh sách, bảng hiệu suất và file CSV xuất ra.</div>
+            <div id="adsStatusBox" class="result-box">Tab Ads sẵn sàng. Hãy chọn ad account hoặc bấm làm mới.</div>
+          </div>
+
+          <div class="action-card">
+            <h3>Trình tạo bản nháp Ads <span class="chart-badge chart-badge-local">Chỉ lưu nháp</span></h3>
+            <div class="draft-builder-grid">
+              <form id="campaignDraftForm" class="draft-form">
+                <h4>Bản nháp campaign</h4>
+                <div class="form-group">
+                  <label>Tên campaign:</label>
+                  <input type="text" id="campaignDraftName" placeholder="VD: July engagement test">
+                </div>
+                <div class="form-group">
+                  <label>Mục tiêu gợi ý:</label>
+                  <select id="campaignDraftObjective">
+                    <option value="OUTCOME_ENGAGEMENT" selected>Engagement - tăng tương tác</option>
+                    <option value="OUTCOME_TRAFFIC">Traffic - kéo click về website</option>
+                    <option value="OUTCOME_LEADS">Leads - thu lead/form</option>
+                    <option value="OUTCOME_SALES">Sales - chuyển đổi/mua hàng</option>
+                    <option value="OUTCOME_AWARENESS">Awareness - nhận diện</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Ngân sách ngày dự kiến:</label>
+                  <input type="number" id="campaignDraftDailyBudget" min="0" step="1" placeholder="0">
+                </div>
+                <div class="form-group">
+                  <label>Trạng thái sau khi publish lên Meta:</label>
+                  <select id="campaignDraftMetaStatus">
+                    <option value="PAUSED" selected>Paused - tạo nhưng chưa chạy</option>
+                    <option value="ACTIVE">Active - chạy ngay khi publish</option>
+                  </select>
+                </div>
+                <button type="submit" class="btn btn-primary">Lưu bản nháp campaign</button>
+              </form>
+
+              <form id="adSetDraftForm" class="draft-form">
+                <h4>Bản nháp nhóm quảng cáo</h4>
+                <div class="form-group">
+                  <label>Bản nháp campaign:</label>
+                  <select id="adSetDraftCampaignSelect"><option value="">-- Chọn campaign draft --</option></select>
+                </div>
+                <div class="form-group">
+                  <label>Tên ad set:</label>
+                  <input type="text" id="adSetDraftName" placeholder="VD: VN broad 18-34">
+                </div>
+                <div class="form-group">
+                  <label>Tối ưu theo:</label>
+                  <select id="adSetDraftOptimization">
+                    <option value="POST_ENGAGEMENT" selected>Tương tác bài viết</option>
+                    <option value="LINK_CLICKS">Click liên kết</option>
+                    <option value="LEAD_GENERATION">Thu lead</option>
+                    <option value="OFFSITE_CONVERSIONS">Chuyển đổi</option>
+                    <option value="REACH">Tiếp cận</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Ngân sách ngày:</label>
+                  <input type="number" id="adSetDraftDailyBudget" min="0" step="1" placeholder="0">
+                </div>
+                <div class="form-group">
+                  <label>Quốc gia targeting:</label>
+                  <input type="text" id="adSetDraftCountries" value="VN" placeholder="VD: VN,US">
+                </div>
+                <div class="form-group">
+                  <label>Tuổi tối thiểu:</label>
+                  <input type="number" id="adSetDraftAgeMin" min="13" max="65" value="18">
+                </div>
+                <div class="form-group">
+                  <label>Tuổi tối đa:</label>
+                  <input type="number" id="adSetDraftAgeMax" min="13" max="65" value="65">
+                </div>
+                <div class="form-group">
+                  <label>Trạng thái sau khi publish lên Meta:</label>
+                  <select id="adSetDraftMetaStatus">
+                    <option value="PAUSED" selected>Paused - tạo nhưng chưa chạy</option>
+                    <option value="ACTIVE">Active - chạy ngay khi publish</option>
+                  </select>
+                </div>
+                <button type="submit" class="btn btn-primary">Lưu bản nháp nhóm quảng cáo</button>
+              </form>
+
+              <form id="adDraftForm" class="draft-form">
+                <h4>Bản nháp quảng cáo</h4>
+                <div class="form-group">
+                  <label>Bản nháp nhóm quảng cáo:</label>
+                  <select id="adDraftAdSetSelect"><option value="">-- Chọn ad set draft --</option></select>
+                </div>
+                <div class="form-group">
+                  <label>Page:</label>
+                  <select id="adDraftPageSelect"><option value="">-- Chọn page --</option></select>
+                </div>
+                <div class="form-group">
+                  <label>Tên ad:</label>
+                  <input type="text" id="adDraftName" placeholder="VD: Creative A - hook 1">
+                </div>
+                <div class="form-group">
+                  <label>Nội dung chính:</label>
+                  <textarea id="adDraftMessage" rows="3" placeholder="Nội dung quảng cáo..."></textarea>
+                </div>
+                <div class="form-group">
+                  <label>Tiêu đề:</label>
+                  <input type="text" id="adDraftHeadline" placeholder="Tiêu đề">
+                </div>
+                <div class="form-group">
+                  <label>Asset URL:</label>
+                  <input type="text" id="adDraftAssetUrl" placeholder="https://...">
+                </div>
+                <div class="form-group">
+                  <label>Hoặc tải asset lên:</label>
+                  <input type="file" id="adDraftAssetFile" accept="image/*,video/*">
+                </div>
+                <div class="form-group">
+                  <label>URL đích:</label>
+                  <input type="text" id="adDraftDestinationUrl" placeholder="https://...">
+                </div>
+                <div class="form-group">
+                  <label>Trạng thái sau khi publish lên Meta:</label>
+                  <select id="adDraftMetaStatus">
+                    <option value="PAUSED" selected>Paused - tạo nhưng chưa chạy</option>
+                    <option value="ACTIVE">Active - chạy ngay khi publish</option>
+                  </select>
+                </div>
+                <button type="submit" class="btn btn-primary">Lưu bản nháp quảng cáo</button>
+              </form>
+            </div>
+            <div id="adsDraftStatusBox" class="result-box">Bản nháp chỉ lưu nội bộ, không tạo campaign/ad live trên Meta.</div>
+          </div>
+
+          <div class="action-card">
+            <h3>Quản lý ngân sách <span class="chart-badge chart-badge-local">Chỉ đọc</span></h3>
+            <div class="form-group">
+              <button id="adsBudgetRefreshBtn" class="btn btn-secondary">Làm mới báo cáo ngân sách</button>
+              <button id="adsBudgetSnapshotBtn" class="btn btn-secondary">Lưu snapshot</button>
+              <button id="adsBudgetExportCsvBtn" class="btn btn-secondary">Xuất CSV</button>
+              <button id="adsBudgetExportMdBtn" class="btn btn-secondary">Xuất Markdown</button>
+            </div>
+            <div class="form-group posts-grid-two">
+              <label>Lọc cảnh báo:</label>
+              <select id="adsBudgetAlertFilter">
+                <option value="all" selected>Tất cả cảnh báo</option>
+                <option value="high">Chỉ mức cao</option>
+                <option value="medium">Từ trung bình trở lên</option>
+                <option value="none">Dòng không có cảnh báo</option>
+              </select>
+            </div>
+            <div class="form-group posts-grid-two">
+              <label>Số dòng:</label>
+              <select id="adsBudgetRowLimit">
+                <option value="25" selected>Top 25</option>
+                <option value="50">Top 50</option>
+                <option value="100">Top 100</option>
+                <option value="all">Tất cả dòng</option>
+              </select>
+            </div>
+            <div id="adsBudgetSummaryBox" class="result-box">Chọn ad account để xem báo cáo ngân sách.</div>
+            <div id="adsBudgetRecommendationsBox" class="budget-recommendations"></div>
+            <details class="collapsible-table" open>
+              <summary>Bảng ngân sách</summary>
+              <div class="table-wrapper">
+                <table class="data-table" id="adsBudgetTable">
+                  <thead>
+                    <tr><th>Nhóm quảng cáo</th><th>Trạng thái</th><th>Ngân sách</th><th>Chi tiêu</th><th>Mức dùng</th><th>CTR</th><th>Tần suất</th><th>Cảnh báo</th><th>Khuyến nghị</th></tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </details>
+            <details class="collapsible-table">
+              <summary>Bản nháp thay đổi ngân sách</summary>
+              <div class="table-wrapper">
+                <table class="data-table" id="adsBudgetDraftsTable">
+                  <thead>
+                    <tr><th>Nhóm quảng cáo</th><th>Hành động</th><th>Hiện tại</th><th>Đề xuất</th><th>Cập nhật</th><th>Thao tác</th></tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </details>
+          </div>
+
+          <div class="action-card">
+            <h3>Ads thắng / rủi ro <span class="chart-badge chart-badge-local">Audit</span></h3>
+            <div class="form-group">
+              <button id="adsPerformanceReportBtn" class="btn btn-secondary">Làm mới nhóm thắng / rủi ro</button>
+            </div>
+            <div id="adsPerformanceReportBox" class="result-box">Chọn ad account để xem nhóm thắng / rủi ro.</div>
+            <details class="collapsible-table">
+              <summary>Bảng nhóm thắng</summary>
+              <div class="table-wrapper">
+                <table class="data-table" id="adsWinnersTable">
+                  <thead><tr><th>Loại thắng</th><th>Tên</th><th>Chi tiêu</th><th>CTR</th><th>CPC</th><th>Kết quả</th><th>ROAS</th></tr></thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </details>
+            <details class="collapsible-table">
+              <summary>Bảng rủi ro</summary>
+              <div class="table-wrapper">
+                <table class="data-table" id="adsLosersTable">
+                  <thead><tr><th>Loại rủi ro</th><th>Tên</th><th>Chi tiêu</th><th>CTR</th><th>CPC</th><th>Tần suất</th><th>Hành động</th></tr></thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </details>
           </div>
 
           <div class="stats-grid ads-stats-grid">
             <div class="stat-card">
               <div class="stat-emoji">&#x1F4B5;</div>
-              <div class="stat-label">Spend</div>
+              <div class="stat-label">Chi tiêu</div>
               <div class="stat-value" id="adsSpendValue">-</div>
             </div>
             <div class="stat-card">
               <div class="stat-emoji">&#x1F441;&#xFE0F;</div>
-              <div class="stat-label">Impressions</div>
+              <div class="stat-label">Lượt hiển thị</div>
               <div class="stat-value" id="adsImpressionsValue">-</div>
             </div>
             <div class="stat-card">
               <div class="stat-emoji">&#x1F465;</div>
-              <div class="stat-label">Reach</div>
+              <div class="stat-label">Tiếp cận</div>
               <div class="stat-value" id="adsReachValue">-</div>
             </div>
             <div class="stat-card">
               <div class="stat-emoji">&#x1F5B1;&#xFE0F;</div>
-              <div class="stat-label">Clicks</div>
+              <div class="stat-label">Click</div>
               <div class="stat-value" id="adsClicksValue">-</div>
             </div>
             <div class="stat-card">
@@ -670,60 +884,81 @@
             </div>
             <div class="stat-card">
               <div class="stat-emoji">&#x1F501;</div>
-              <div class="stat-label">Frequency</div>
+              <div class="stat-label">Tần suất</div>
               <div class="stat-value" id="adsFrequencyValue">-</div>
             </div>
           </div>
 
+          <div class="action-card">
+            <h3>Hàng chờ publish Ads <span class="chart-badge chart-badge-local">Kế hoạch local</span></h3>
+            <details class="collapsible-table">
+              <summary>Campaign, nhóm quảng cáo và quảng cáo</summary>
+              <div class="table-wrapper">
+                <table class="data-table" id="adsDraftsTable">
+                  <thead>
+                    <tr><th>Loại</th><th>Tên</th><th>Cha</th><th>Mục tiêu</th><th>Ngân sách</th><th>Trạng thái khi publish</th><th>Ngày tạo</th><th>Thao tác</th></tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </details>
+          </div>
+
           <div class="charts-grid">
             <div class="chart-card large">
-              <h3 class="chart-title">Ads Spend Trend <span class="chart-badge chart-badge-local">Local DB</span></h3>
+              <h3 class="chart-title">Xu hướng chi tiêu Ads <span class="chart-badge chart-badge-local">Dữ liệu local</span></h3>
               <div class="chart-wrapper"><canvas id="adsSpendTrendChart"></canvas></div>
             </div>
             <div class="chart-card">
-              <h3 class="chart-title">Ads Clicks vs Reach <span class="chart-badge chart-badge-local">Local DB</span></h3>
+              <h3 class="chart-title">Click Ads so với tiếp cận <span class="chart-badge chart-badge-local">Dữ liệu local</span></h3>
               <div class="chart-wrapper"><canvas id="adsClicksReachChart"></canvas></div>
             </div>
             <div class="chart-card">
-              <h3 class="chart-title">Ads Inventory Mix <span class="chart-badge chart-badge-local">Local DB</span></h3>
+              <h3 class="chart-title">Cơ cấu danh sách Ads <span class="chart-badge chart-badge-local">Dữ liệu local</span></h3>
               <div class="chart-wrapper"><canvas id="adsInventoryChart"></canvas></div>
             </div>
           </div>
 
           <div class="action-card">
-            <h3 id="adsInventoryTitle">&#x1F4CB; Campaign Inventory <span class="chart-badge chart-badge-local">Local DB</span></h3>
-            <div class="table-wrapper">
-              <table class="data-table" id="adsCampaignsTable">
-                <thead id="adsInventoryHead">
-                  <tr><th>Campaign</th><th>Objective</th><th>Status</th><th>Buying Type</th><th>Start</th><th>Stop</th></tr>
-                </thead>
-                <tbody></tbody>
-              </table>
-            </div>
+            <h3 id="adsInventoryTitle">&#x1F4CB; Danh sách campaign <span class="chart-badge chart-badge-local">Dữ liệu local</span></h3>
+            <details class="collapsible-table">
+              <summary>Bảng danh sách</summary>
+              <div class="table-wrapper">
+                <table class="data-table" id="adsCampaignsTable">
+                  <thead id="adsInventoryHead">
+                    <tr><th>Campaign</th><th>Mục tiêu</th><th>Trạng thái</th><th>Kiểu mua</th><th>Bắt đầu</th><th>Kết thúc</th></tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </details>
           </div>
 
           <div class="action-card">
-            <h3>&#x1F4C8; Ads Performance Table <span class="chart-badge chart-badge-local">Local DB</span></h3>
-            <div class="table-wrapper">
-              <table class="data-table" id="adsPerformanceTable">
-                <thead>
-                  <tr><th>Name</th><th>Spend</th><th>Impressions</th><th>Reach</th><th>Clicks</th><th>CTR</th><th>CPC</th><th>CPM</th><th>Frequency</th></tr>
-                </thead>
-                <tbody></tbody>
-              </table>
-            </div>
+            <h3>&#x1F4C8; Bảng hiệu suất Ads <span class="chart-badge chart-badge-local">Dữ liệu local</span></h3>
+            <details class="collapsible-table">
+              <summary>Bảng hiệu suất</summary>
+              <div class="table-wrapper">
+                <table class="data-table" id="adsPerformanceTable">
+                  <thead>
+                    <tr><th>Tên</th><th>Chi tiêu</th><th>Lượt hiển thị</th><th>Tiếp cận</th><th>Click</th><th>Kết quả</th><th>Chi phí/kết quả</th><th>CTR</th><th>CPC</th><th>CPM</th><th>Tần suất</th><th>Outbound</th><th>Click link</th><th>ROAS</th></tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </details>
           </div>
         </div>
 
         <!-- Instagram Tab -->
         <div class="tab-content" id="instagram-tab">
           <div class="section-header">
-            <h2>Instagram Reporting</h2>
-            <p class="section-description">Theo dõi linked Instagram business accounts, insight snapshots, demographics và media inventory</p>
+            <h2>Báo cáo Instagram</h2>
+            <p class="section-description">Theo dõi Instagram business account đã liên kết, snapshot insight, nhân khẩu học và danh sách media</p>
           </div>
 
           <div class="action-card">
-            <h3>&#x1F50D; Instagram Control Center <span class="chart-badge chart-badge-live">Live Meta</span></h3>
+            <h3>&#x1F50D; Trung tâm điều khiển Instagram <span class="chart-badge chart-badge-live">Live Meta</span></h3>
             <div class="form-group">
               <label>Instagram Account:</label>
               <select id="instagramAccountSelect"><option value="">-- Chọn Instagram account --</option></select>
@@ -737,15 +972,15 @@
               </select>
             </div>
             <div class="form-group">
-              <button id="instagramRefreshBtn" class="btn btn-secondary">Refresh Instagram</button>
-              <button id="instagramSyncBtn" class="btn btn-primary">Sync Instagram</button>
-              <button id="instagramSyncAllBtn" class="btn btn-secondary">Sync All Instagram</button>
+              <button id="instagramRefreshBtn" class="btn btn-secondary">Làm mới Instagram</button>
+              <button id="instagramSyncBtn" class="btn btn-primary">Đồng bộ Instagram</button>
+              <button id="instagramSyncAllBtn" class="btn btn-secondary">Đồng bộ tất cả Instagram</button>
             </div>
             <div class="form-group">
-              <button id="instagramExportAccountsBtn" class="btn btn-secondary">Export Accounts CSV</button>
-              <button id="instagramExportInsightsBtn" class="btn btn-secondary">Export Insights CSV</button>
-              <button id="instagramExportMediaBtn" class="btn btn-secondary">Export Media CSV</button>
-              <button id="instagramExportDemographicsBtn" class="btn btn-secondary">Export Demographics CSV</button>
+              <button id="instagramExportAccountsBtn" class="btn btn-secondary">Xuất CSV account</button>
+              <button id="instagramExportInsightsBtn" class="btn btn-secondary">Xuất CSV insight</button>
+              <button id="instagramExportMediaBtn" class="btn btn-secondary">Xuất CSV media</button>
+              <button id="instagramExportDemographicsBtn" class="btn btn-secondary">Xuất CSV nhân khẩu học</button>
             </div>
             <div class="ads-context-bar" id="instagramContextBar">
               <span class="ads-context-empty">Chưa chọn Instagram account.</span>

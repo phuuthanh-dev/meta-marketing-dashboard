@@ -42,6 +42,29 @@ class MetaAdsAPI {
     }
   }
 
+  async rawPost(endpoint, payload) {
+    const now = Date.now();
+    const elapsed = now - this.lastRequestTime;
+
+    if (elapsed < 1000) {
+      await new Promise(resolve => setTimeout(resolve, 1000 - elapsed));
+    }
+
+    this.lastRequestTime = Date.now();
+
+    try {
+      const response = await this.client.post(endpoint, payload);
+      return response.data;
+    } catch (error) {
+      if (error.response?.data?.error) {
+        const fb = error.response.data.error;
+        throw new Error(`FB [${fb.code}]: ${fb.message}`);
+      }
+
+      throw error;
+    }
+  }
+
   async fetchPaginated(endpoint, params, options = {}) {
     const results = [];
     const maxPages = options.maxPages || 100;
@@ -73,6 +96,105 @@ class MetaAdsAPI {
   normalizeAdAccountId(adAccountId) {
     if (!adAccountId) return adAccountId;
     return adAccountId.startsWith('act_') ? adAccountId : `act_${adAccountId}`;
+  }
+
+  toApiBudgetAmount(amount, currency = 'USD') {
+    const numeric = Number(amount || 0);
+    if (!numeric) return 0;
+
+    const zeroDecimalCurrencies = new Set([
+      'BIF', 'CLP', 'DJF', 'GNF', 'JPY', 'KMF', 'KRW', 'MGA',
+      'PYG', 'RWF', 'UGX', 'VND', 'VUV', 'XAF', 'XOF', 'XPF'
+    ]);
+
+    return zeroDecimalCurrencies.has(String(currency || '').toUpperCase())
+      ? Math.round(numeric)
+      : Math.round(numeric * 100);
+  }
+
+  async createCampaign(adAccountId, draft, options = {}) {
+    const currency = options.currency || 'USD';
+    const payload = {
+      access_token: this.token,
+      name: draft.name,
+      objective: draft.objective || 'OUTCOME_ENGAGEMENT',
+      buying_type: draft.buying_type || 'AUCTION',
+      status: options.status || draft.meta_status || 'PAUSED',
+      special_ad_categories: JSON.stringify(draft.special_ad_categories || [])
+    };
+
+    const dailyBudget = this.toApiBudgetAmount(draft.daily_budget, currency);
+    const lifetimeBudget = this.toApiBudgetAmount(draft.lifetime_budget, currency);
+    if (dailyBudget > 0) payload.daily_budget = dailyBudget;
+    if (lifetimeBudget > 0) payload.lifetime_budget = lifetimeBudget;
+
+    return this.rawPost(`/${this.normalizeAdAccountId(adAccountId)}/campaigns`, payload);
+  }
+
+  async createAdSet(adAccountId, draft, campaignId, options = {}) {
+    const currency = options.currency || 'USD';
+    const payload = {
+      access_token: this.token,
+      name: draft.name,
+      campaign_id: campaignId,
+      optimization_goal: draft.optimization_goal || 'POST_ENGAGEMENT',
+      billing_event: draft.billing_event || 'IMPRESSIONS',
+      bid_strategy: draft.bid_strategy || 'LOWEST_COST_WITHOUT_CAP',
+      status: options.status || draft.meta_status || 'PAUSED',
+      targeting: JSON.stringify(draft.targeting || {})
+    };
+
+    const dailyBudget = this.toApiBudgetAmount(draft.daily_budget, currency);
+    const lifetimeBudget = this.toApiBudgetAmount(draft.lifetime_budget, currency);
+    if (dailyBudget > 0) payload.daily_budget = dailyBudget;
+    if (lifetimeBudget > 0) payload.lifetime_budget = lifetimeBudget;
+    if (draft.start_time) payload.start_time = draft.start_time;
+    if (draft.end_time) payload.end_time = draft.end_time;
+
+    return this.rawPost(`/${this.normalizeAdAccountId(adAccountId)}/adsets`, payload);
+  }
+
+  async createAdCreative(adAccountId, draft) {
+    const link = draft.destination_url || '';
+    const linkData = {
+      message: draft.message || '',
+      link,
+      name: draft.headline || draft.name || '',
+      description: draft.description || '',
+      call_to_action: {
+        type: draft.call_to_action || 'LEARN_MORE',
+        value: { link }
+      }
+    };
+
+    if (draft.asset_url && draft.asset_type !== 'video') {
+      linkData.picture = draft.asset_url;
+    }
+
+    const objectStorySpec = {
+      page_id: draft.page_id,
+      link_data: linkData
+    };
+
+    if (draft.instagram_account_id) {
+      objectStorySpec.instagram_actor_id = draft.instagram_account_id;
+    }
+
+    return this.rawPost(`/${this.normalizeAdAccountId(adAccountId)}/adcreatives`, {
+      access_token: this.token,
+      name: draft.creative_name || `${draft.name || 'Ad'} Creative`,
+      object_story_spec: JSON.stringify(objectStorySpec)
+    });
+  }
+
+  async createAd(adAccountId, draft, adSetId, creativeId, options = {}) {
+    return this.rawPost(`/${this.normalizeAdAccountId(adAccountId)}/ads`, {
+      access_token: this.token,
+      name: draft.name,
+      adset_id: adSetId,
+      creative: JSON.stringify({ creative_id: creativeId }),
+      status: options.status || draft.meta_status || 'PAUSED'
+    });
   }
 
   formatDate(date) {
@@ -119,6 +241,20 @@ class MetaAdsAPI {
     }
 
     return chunks;
+  }
+
+  getInsightFields(includeOptional = true) {
+    const fields = [...config.ads.insightFields];
+    if (includeOptional && Array.isArray(config.ads.optionalInsightFields)) {
+      fields.push(...config.ads.optionalInsightFields);
+    }
+    return [...new Set(fields)].join(',');
+  }
+
+  isOptionalInsightFieldError(error) {
+    const message = String(error?.message || '');
+    return /field|parameter|metric|nonexisting|unknown|valid/i.test(message)
+      && /(actions|roas|outbound|inline_link|unique_click|cost_per|conversion)/i.test(message);
   }
 
   async fetchInsightsWindow(adAccountId, params, level) {
@@ -177,7 +313,7 @@ class MetaAdsAPI {
     const params = {
       access_token: this.token,
       level,
-      fields: config.ads.insightFields.join(','),
+      fields: this.getInsightFields(true),
       limit: level === 'account' ? 500 : 100
     };
 
@@ -197,6 +333,12 @@ class MetaAdsAPI {
     try {
       return await this.fetchInsightsWindow(adAccountId, params, level);
     } catch (error) {
+      if (this.isOptionalInsightFieldError(error)) {
+        console.log('  ⚠️ Optional Ads insight fields unavailable, retrying with baseline fields...');
+        params.fields = this.getInsightFields(false);
+        return this.fetchInsightsWindow(adAccountId, params, level);
+      }
+
       if (!String(error.message).includes('Please reduce the amount of data') || level === 'account') {
         throw error;
       }
@@ -209,7 +351,7 @@ class MetaAdsAPI {
         const chunkParams = {
           access_token: this.token,
           level,
-          fields: config.ads.insightFields.join(','),
+          fields: params.fields,
           time_range: JSON.stringify(chunk),
           limit: level === 'campaign' ? 50 : 25
         };
