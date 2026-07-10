@@ -387,6 +387,35 @@ class DB {
         UNIQUE(media_id, snapshot_date),
         FOREIGN KEY (media_id) REFERENCES instagram_media(id) ON DELETE CASCADE
       );
+
+      CREATE TABLE IF NOT EXISTS dual_publish_jobs (
+        id TEXT PRIMARY KEY,
+        page_id TEXT,
+        page_name TEXT,
+        portfolio TEXT,
+        instagram_account_id TEXT,
+        instagram_username TEXT,
+        facebook_post_id TEXT,
+        media_url TEXT,
+        message TEXT,
+        scheduled_time TEXT,
+        status TEXT DEFAULT 'scheduled',
+        attempts INTEGER DEFAULT 0,
+        instagram_container_id TEXT,
+        instagram_media_id TEXT,
+        publish_error TEXT,
+        last_attempt_at TEXT,
+        published_at TEXT,
+        canceled_at TEXT,
+        facebook_deleted_at TEXT,
+        instagram_deleted_at TEXT,
+        deleted_at TEXT,
+        delete_error TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (page_id) REFERENCES pages(id) ON DELETE SET NULL,
+        FOREIGN KEY (instagram_account_id) REFERENCES instagram_accounts(id) ON DELETE SET NULL
+      );
     `);
 
     // Create indexes for better query performance
@@ -421,6 +450,9 @@ class DB {
       CREATE INDEX IF NOT EXISTS idx_instagram_media_account_id ON instagram_media(instagram_account_id);
       CREATE INDEX IF NOT EXISTS idx_instagram_media_timestamp ON instagram_media(timestamp);
       CREATE INDEX IF NOT EXISTS idx_instagram_insight_snapshots_account_date ON instagram_account_insight_snapshots(instagram_account_id, snapshot_date);
+      CREATE INDEX IF NOT EXISTS idx_dual_publish_jobs_status_time ON dual_publish_jobs(status, scheduled_time);
+      CREATE INDEX IF NOT EXISTS idx_dual_publish_jobs_page ON dual_publish_jobs(page_id);
+      CREATE INDEX IF NOT EXISTS idx_dual_publish_jobs_instagram_account ON dual_publish_jobs(instagram_account_id);
     `);
 
     // Migration: Add fan_count and followers_count columns if they don't exist
@@ -449,6 +481,18 @@ class DB {
     for (const table of ['ad_campaign_drafts', 'ad_set_drafts', 'ad_drafts']) {
       try {
         this.db.exec(`ALTER TABLE ${table} ADD COLUMN meta_status TEXT DEFAULT 'PAUSED'`);
+      } catch (e) {
+        // Column already exists
+      }
+    }
+    for (const column of [
+      `facebook_deleted_at TEXT`,
+      `instagram_deleted_at TEXT`,
+      `deleted_at TEXT`,
+      `delete_error TEXT`
+    ]) {
+      try {
+        this.db.exec(`ALTER TABLE dual_publish_jobs ADD COLUMN ${column}`);
       } catch (e) {
         // Column already exists
       }
@@ -2331,6 +2375,186 @@ class DB {
       FROM instagram_accounts
       ORDER BY username COLLATE NOCASE ASC, name COLLATE NOCASE ASC
     `).all();
+  }
+
+  createDualPublishJob(job) {
+    this.db.prepare(`
+      INSERT INTO dual_publish_jobs (
+        id, page_id, page_name, portfolio, instagram_account_id, instagram_username,
+        facebook_post_id, media_url, message, scheduled_time, status,
+        instagram_container_id, instagram_media_id, publish_error, published_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      job.id,
+      job.page_id,
+      job.page_name || '',
+      job.portfolio || '',
+      job.instagram_account_id,
+      job.instagram_username || '',
+      job.facebook_post_id || '',
+      job.media_url,
+      job.message || '',
+      job.scheduled_time,
+      job.status || 'scheduled',
+      job.instagram_container_id || '',
+      job.instagram_media_id || '',
+      job.publish_error || null,
+      job.published_at || null
+    );
+
+    return this.getDualPublishJob(job.id);
+  }
+
+  getDualPublishJob(id) {
+    return this.db.prepare(`
+      SELECT *
+      FROM dual_publish_jobs
+      WHERE id = ?
+    `).get(id);
+  }
+
+  getDualPublishJobs(limit = 50) {
+    return this.db.prepare(`
+      SELECT *
+      FROM dual_publish_jobs
+      ORDER BY scheduled_time DESC, created_at DESC
+      LIMIT ?
+    `).all(parseInt(limit, 10) || 50);
+  }
+
+  getDueDualPublishJobs(nowIso = new Date().toISOString(), limit = 10) {
+    return this.db.prepare(`
+      SELECT *
+      FROM dual_publish_jobs
+      WHERE status = 'scheduled'
+        AND scheduled_time <= ?
+      ORDER BY scheduled_time ASC, created_at ASC
+      LIMIT ?
+    `).all(nowIso, parseInt(limit, 10) || 10);
+  }
+
+  markStaleDualPublishJobsError(cutoffIso) {
+    return this.db.prepare(`
+      UPDATE dual_publish_jobs
+      SET status = 'error',
+        publish_error = 'Job bị kẹt ở trạng thái đang đăng. Vui lòng retry.',
+        updated_at = CURRENT_TIMESTAMP
+      WHERE status = 'publishing'
+        AND last_attempt_at < ?
+    `).run(cutoffIso).changes;
+  }
+
+  markDualPublishJobRunning(id) {
+    const now = new Date().toISOString();
+    this.db.prepare(`
+      UPDATE dual_publish_jobs
+      SET status = 'publishing',
+        attempts = attempts + 1,
+        last_attempt_at = ?,
+        publish_error = NULL,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+        AND status = 'scheduled'
+    `).run(now, id);
+    return this.getDualPublishJob(id);
+  }
+
+  markDualPublishJobPublished(id, result = {}) {
+    const now = new Date().toISOString();
+    this.db.prepare(`
+      UPDATE dual_publish_jobs
+      SET status = 'published',
+        instagram_container_id = ?,
+        instagram_media_id = ?,
+        publish_error = NULL,
+        published_at = ?,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(
+      result.container_id || '',
+      result.media_id || '',
+      now,
+      id
+    );
+    return this.getDualPublishJob(id);
+  }
+
+  markDualPublishJobError(id, errorMessage) {
+    this.db.prepare(`
+      UPDATE dual_publish_jobs
+      SET status = 'error',
+        publish_error = ?,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(String(errorMessage || 'Unknown Instagram publish error'), id);
+    return this.getDualPublishJob(id);
+  }
+
+  retryDualPublishJob(id) {
+    this.db.prepare(`
+      UPDATE dual_publish_jobs
+      SET status = 'scheduled',
+        publish_error = NULL,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+        AND status = 'error'
+    `).run(id);
+    return this.getDualPublishJob(id);
+  }
+
+  cancelDualPublishJob(id) {
+    const now = new Date().toISOString();
+    this.db.prepare(`
+      UPDATE dual_publish_jobs
+      SET status = 'canceled',
+        canceled_at = ?,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+        AND status IN ('scheduled', 'error')
+    `).run(now, id);
+    return this.getDualPublishJob(id);
+  }
+
+  markDualPublishJobDeleted(id, outcome = {}) {
+    const job = this.getDualPublishJob(id);
+    const now = new Date().toISOString();
+    this.db.prepare(`
+      UPDATE dual_publish_jobs
+      SET status = 'deleted',
+        facebook_deleted_at = ?,
+        instagram_deleted_at = ?,
+        deleted_at = ?,
+        delete_error = NULL,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(
+      outcome.facebookDeleted ? now : (job?.facebook_deleted_at || null),
+      outcome.instagramDeleted ? now : (job?.instagram_deleted_at || null),
+      now,
+      id
+    );
+    return this.getDualPublishJob(id);
+  }
+
+  markDualPublishJobDeleteError(id, errorMessage, outcome = {}) {
+    const job = this.getDualPublishJob(id);
+    const now = new Date().toISOString();
+    this.db.prepare(`
+      UPDATE dual_publish_jobs
+      SET status = 'delete_error',
+        facebook_deleted_at = ?,
+        instagram_deleted_at = ?,
+        delete_error = ?,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(
+      outcome.facebookDeleted ? now : (job?.facebook_deleted_at || null),
+      outcome.instagramDeleted ? now : (job?.instagram_deleted_at || null),
+      String(errorMessage || 'Không xoá được dual publish.'),
+      id
+    );
+    return this.getDualPublishJob(id);
   }
 
   getInstagramMediaByAccount(instagramAccountId, limit = 25) {

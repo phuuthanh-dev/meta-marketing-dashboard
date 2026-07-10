@@ -270,6 +270,25 @@ async function loadNotifications() {
 
 // ========== MEDIA MANAGEMENT ==========
 
+function escapeHtmlText(value) {
+  const div = document.createElement('div');
+  div.textContent = value || '';
+  return div.innerHTML;
+}
+
+function buildPagePostUrl(postId) {
+  if (!postId || !String(postId).includes('_')) {
+    return '';
+  }
+
+  const [pageId, entryId] = String(postId).split('_');
+  if (!pageId || !entryId) {
+    return '';
+  }
+
+  return `https://www.facebook.com/${pageId}/posts/${entryId}`;
+}
+
 async function uploadPhoto() {
   const pageId = document.getElementById('uploadPhotoPageSelect').value;
   const photoUrl = document.getElementById('uploadPhotoUrl').value;
@@ -296,8 +315,22 @@ async function uploadPhoto() {
       resultBox.innerHTML = `<div class="error-state">Lỗi: ${data.error}</div>`;
       return;
     }
-    
-    resultBox.innerHTML = `<div class="success-state">✓ Đã upload ảnh (ID: ${data.data.id || 'N/A'})</div>`;
+
+    const postId = data.data?.post_id || data.data?.id || '';
+    const photoId = data.data?.photo_id || '';
+    const postUrl = data.data?.permalink_url || buildPagePostUrl(postId);
+    const postLinkHtml = postUrl
+      ? `<a class="publish-link" href="${postUrl}" target="_blank" rel="noopener noreferrer">Mở bài đăng trên Facebook</a>`
+      : '';
+
+    resultBox.innerHTML = `
+      <div class="success-state">
+        ✓ Đã tạo bài đăng ảnh trên Feed
+        <div>Post ID: ${escapeHtmlText(postId || 'N/A')}</div>
+        <div>Photo ID: ${escapeHtmlText(photoId || 'N/A')}</div>
+        ${postLinkHtml}
+      </div>
+    `;
     document.getElementById('uploadPhotoUrl').value = '';
     document.getElementById('uploadPhotoCaption').value = '';
   } catch (error) {

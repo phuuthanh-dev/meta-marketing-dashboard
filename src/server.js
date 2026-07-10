@@ -978,6 +978,7 @@ class Server {
     return [
       /^\/api\/pages\/[^/]+\/posts(?:\/schedule)?$/,
       /^\/api\/pages\/[^/]+\/publish$/,
+      /^\/api\/dual-publish\/jobs\/[^/]+(?:\/(?:cancel|retry))?$/,
       /^\/api\/posts\/[^/]+$/,
       /^\/api\/comments\/[^/]+(?:\/replies|\/hide)?$/,
       /^\/api\/pages\/[^/]+\/messages$/,
@@ -1391,12 +1392,12 @@ class Server {
         const { id } = req.params;
         const page = this.db.getPages().find(p => p.id === id);
         if (!page) {
-          return res.status(404).json({ error: 'Page not found' });
+          return res.status(404).json({ error: 'Không tìm thấy Page.' });
         }
 
         const portfolio = config.portfolios.find(p => p.name === page.portfolio);
         if (!portfolio) {
-          return res.status(404).json({ error: 'Portfolio not found' });
+          return res.status(404).json({ error: 'Không tìm thấy portfolio của Page.' });
         }
 
         const message = String(req.body.message || '').trim();
@@ -1405,9 +1406,29 @@ class Server {
         const mediaUrlInput = String(req.body.mediaUrl || '').trim();
         const shouldSchedule = normalizeBoolean(req.body.schedule);
         const scheduledTime = shouldSchedule ? parseScheduledTime(req.body.scheduledTime) : null;
+        const shouldPublishInstagram = normalizeBoolean(req.body.publishInstagram);
+        const instagramAccountIdInput = String(req.body.instagramAccountId || '').trim();
 
         if (!message && !mediaType) {
-          return res.status(400).json({ error: 'Please provide a message or select a media type.' });
+          return res.status(400).json({ error: 'Vui lòng nhập nội dung hoặc chọn media.' });
+        }
+
+        let instagramAccount = null;
+        if (shouldPublishInstagram) {
+          if (mediaType !== 'photo') {
+            return res.status(400).json({ error: 'Đăng kép lên Instagram hiện chỉ hỗ trợ bài ảnh single-image.' });
+          }
+
+          const linkedInstagramAccounts = this.db.getInstagramAccounts()
+            .filter(account => account.page_id === id)
+            .filter(account => !page.portfolio || String(account.portfolio || '').split(',').map(item => item.trim()).includes(page.portfolio));
+          instagramAccount = instagramAccountIdInput
+            ? linkedInstagramAccounts.find(account => account.id === instagramAccountIdInput)
+            : linkedInstagramAccounts[0];
+
+          if (!instagramAccount) {
+            return res.status(400).json({ error: 'Không tìm thấy Instagram Business account đã sync và liên kết với Page này.' });
+          }
         }
 
         let mediaUrl = mediaUrlInput;
@@ -1456,18 +1477,229 @@ class Server {
           });
         }
 
+        const instagramMeta = {
+          requested: shouldPublishInstagram
+        };
+        const responseData = { ...result };
+        const facebookPostId = result.post_id || result.id || '';
+
+        if (shouldPublishInstagram) {
+          instagramMeta.account_id = instagramAccount.id;
+          instagramMeta.username = instagramAccount.username || '';
+
+          if (scheduledTime) {
+            const job = this.db.createDualPublishJob({
+              id: `dual_${crypto.randomUUID()}`,
+              page_id: id,
+              page_name: page.name || '',
+              portfolio: page.portfolio || '',
+              instagram_account_id: instagramAccount.id,
+              instagram_username: instagramAccount.username || '',
+              facebook_post_id: facebookPostId,
+              media_url: mediaUrl,
+              message,
+              scheduled_time: scheduledTime.toISOString(),
+              status: 'scheduled'
+            });
+            responseData.dual_publish_job_id = job.id;
+            instagramMeta.status = 'scheduled';
+            instagramMeta.job_id = job.id;
+            instagramMeta.scheduled_time = job.scheduled_time;
+          } else {
+            try {
+              const instagramApi = new InstagramAPI(portfolio.token);
+              const instagramResult = await instagramApi.publishSingleImage(instagramAccount.id, mediaUrl, message);
+              responseData.instagram_container_id = instagramResult.container_id;
+              responseData.instagram_media_id = instagramResult.media_id;
+              instagramMeta.status = 'published';
+              instagramMeta.container_id = instagramResult.container_id;
+              instagramMeta.media_id = instagramResult.media_id;
+              const job = this.db.createDualPublishJob({
+                id: `dual_${crypto.randomUUID()}`,
+                page_id: id,
+                page_name: page.name || '',
+                portfolio: page.portfolio || '',
+                instagram_account_id: instagramAccount.id,
+                instagram_username: instagramAccount.username || '',
+                facebook_post_id: facebookPostId,
+                media_url: mediaUrl,
+                message,
+                scheduled_time: new Date().toISOString(),
+                status: 'published',
+                instagram_container_id: instagramResult.container_id,
+                instagram_media_id: instagramResult.media_id,
+                published_at: new Date().toISOString()
+              });
+              responseData.dual_publish_job_id = job.id;
+              instagramMeta.job_id = job.id;
+            } catch (error) {
+              const job = this.db.createDualPublishJob({
+                id: `dual_${crypto.randomUUID()}`,
+                page_id: id,
+                page_name: page.name || '',
+                portfolio: page.portfolio || '',
+                instagram_account_id: instagramAccount.id,
+                instagram_username: instagramAccount.username || '',
+                facebook_post_id: facebookPostId,
+                media_url: mediaUrl,
+                message,
+                scheduled_time: new Date().toISOString(),
+                status: 'error',
+                publish_error: error.message
+              });
+              responseData.dual_publish_job_id = job.id;
+              instagramMeta.status = 'error';
+              instagramMeta.job_id = job.id;
+              instagramMeta.error = error.message;
+            }
+          }
+        }
+
         res.json({
-          data: result,
+          data: responseData,
           meta: {
             mediaType: mediaType || 'text',
             scheduled: Boolean(scheduledTime),
             mediaUrl: mediaUrl || null,
-            cloudinary: cloudinaryAsset
+            cloudinary: cloudinaryAsset,
+            instagram: instagramMeta
           }
         });
       } catch (err) {
         res.status(500).json({ error: err.message });
       }
+    });
+
+    this.app.get('/api/dual-publish/jobs', (req, res) => {
+      const limit = parseInt(req.query.limit, 10) || 50;
+      res.json({ data: this.db.getDualPublishJobs(limit) });
+    });
+
+    this.app.post('/api/dual-publish/jobs/:id/retry', express.json(), (req, res) => {
+      const job = this.db.getDualPublishJob(req.params.id);
+      if (!job) {
+        return res.status(404).json({ error: 'Không tìm thấy job đăng kép.' });
+      }
+      if (job.status !== 'error') {
+        return res.status(400).json({ error: 'Chỉ retry được job đang lỗi.' });
+      }
+
+      res.json({ data: this.db.retryDualPublishJob(job.id) });
+    });
+
+    this.app.post('/api/dual-publish/jobs/:id/cancel', express.json(), async (req, res) => {
+      try {
+        const job = this.db.getDualPublishJob(req.params.id);
+        if (!job) {
+          return res.status(404).json({ error: 'Không tìm thấy job đăng kép.' });
+        }
+        if (!['scheduled', 'error'].includes(job.status)) {
+          return res.status(400).json({ error: 'Job này không còn ở trạng thái có thể hủy.' });
+        }
+
+        let facebookCancel = null;
+        const isFutureJob = job.scheduled_time && new Date(job.scheduled_time).getTime() > Date.now();
+        if (job.status === 'scheduled' && isFutureJob && job.facebook_post_id) {
+          const portfolio = config.portfolios.find(item => item.name === job.portfolio);
+          if (!portfolio) {
+            return res.status(404).json({ error: 'Không tìm thấy portfolio của job.' });
+          }
+
+          const api = new FacebookAPI(portfolio.token);
+          facebookCancel = await api.deletePost(job.facebook_post_id, job.page_id || '');
+        }
+
+        res.json({
+          data: this.db.cancelDualPublishJob(job.id),
+          meta: {
+            facebookCancel
+          }
+        });
+      } catch (err) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    this.app.delete('/api/dual-publish/jobs/:id', async (req, res) => {
+      const job = this.db.getDualPublishJob(req.params.id);
+      if (!job) {
+        return res.status(404).json({ error: 'Không tìm thấy job đăng kép.' });
+      }
+      if (['scheduled', 'publishing'].includes(job.status)) {
+        return res.status(400).json({ error: 'Job này chưa đăng xong. Hãy dùng Hủy nếu muốn dừng lịch đăng.' });
+      }
+      if (job.status === 'deleted') {
+        return res.json({ data: job, meta: { alreadyDeleted: true } });
+      }
+
+      const target = String(req.query.target || 'both').toLowerCase();
+      if (!['both', 'facebook', 'instagram'].includes(target)) {
+        return res.status(400).json({ error: 'Target không hợp lệ. Dùng both, facebook hoặc instagram.' });
+      }
+
+      const portfolio = config.portfolios.find(item => item.name === job.portfolio);
+      if (!portfolio) {
+        return res.status(404).json({ error: 'Không tìm thấy portfolio của job.' });
+      }
+
+      const wantsFacebook = target === 'both' || target === 'facebook';
+      const wantsInstagram = target === 'both' || target === 'instagram';
+      const outcome = {
+        facebookDeleted: false,
+        instagramDeleted: false
+      };
+      const results = {
+        facebook: 'skipped',
+        instagram: 'skipped'
+      };
+      const errors = [];
+
+      if (wantsFacebook && job.facebook_post_id) {
+        if (job.facebook_deleted_at) {
+          results.facebook = 'already_deleted';
+        } else {
+          try {
+            const api = new FacebookAPI(portfolio.token);
+            await api.deletePost(job.facebook_post_id, job.page_id || '');
+            outcome.facebookDeleted = true;
+            results.facebook = 'deleted';
+          } catch (error) {
+            results.facebook = 'error';
+            errors.push(`Facebook: ${error.message}`);
+          }
+        }
+      }
+
+      if (wantsInstagram && job.instagram_media_id) {
+        if (job.instagram_deleted_at) {
+          results.instagram = 'already_deleted';
+        } else {
+          try {
+            const api = new InstagramAPI(portfolio.token);
+            await api.deleteMedia(job.instagram_media_id);
+            outcome.instagramDeleted = true;
+            results.instagram = 'deleted';
+          } catch (error) {
+            results.instagram = 'error';
+            errors.push(`Instagram: ${error.message}`);
+          }
+        }
+      }
+
+      if (errors.length > 0) {
+        const updatedJob = this.db.markDualPublishJobDeleteError(job.id, errors.join(' | '), outcome);
+        return res.status(500).json({
+          error: errors.join(' | '),
+          data: updatedJob,
+          meta: { results }
+        });
+      }
+
+      const updatedJob = this.db.markDualPublishJobDeleted(job.id, outcome);
+      res.json({
+        data: updatedJob,
+        meta: { results }
+      });
     });
 
     // Get all pages
@@ -3115,7 +3347,7 @@ class Server {
 
     // ========== MEDIA UPLOAD ==========
 
-    // Upload photo
+    // Publish a photo as a Page Feed post.
     this.app.post('/api/pages/:id/photos', express.json(), async (req, res) => {
       try {
         const { id } = req.params;
@@ -3132,8 +3364,18 @@ class Server {
         }
         
         const api = new FacebookAPI(portfolio.token);
-        const result = await api.uploadPhoto(id, photoUrl, caption);
-        res.json({ data: result });
+        const result = await api.publishPhotoFeedPost(id, photoUrl, caption || '');
+        res.json({
+          data: {
+            ...result,
+            post_id: result.id,
+            photo_id: result.photo_id || null
+          },
+          meta: {
+            feedPost: true,
+            uploadedPhotoPublished: false
+          }
+        });
       } catch (err) {
         res.status(500).json({ error: err.message });
       }

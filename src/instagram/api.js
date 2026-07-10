@@ -31,6 +31,46 @@ class InstagramAPI {
     }
   }
 
+  async rawPost(endpoint, payload) {
+    const now = Date.now();
+    const elapsed = now - this.lastRequestTime;
+    if (elapsed < 1000) {
+      await new Promise(resolve => setTimeout(resolve, 1000 - elapsed));
+    }
+    this.lastRequestTime = Date.now();
+
+    try {
+      const response = await this.client.post(endpoint, payload);
+      return response.data;
+    } catch (error) {
+      if (error.response?.data?.error) {
+        const fb = error.response.data.error;
+        throw new Error(`FB [${fb.code}]: ${fb.message}`);
+      }
+      throw error;
+    }
+  }
+
+  async rawDelete(endpoint, params) {
+    const now = Date.now();
+    const elapsed = now - this.lastRequestTime;
+    if (elapsed < 1000) {
+      await new Promise(resolve => setTimeout(resolve, 1000 - elapsed));
+    }
+    this.lastRequestTime = Date.now();
+
+    try {
+      const response = await this.client.delete(endpoint, { params });
+      return response.data;
+    } catch (error) {
+      if (error.response?.data?.error) {
+        const fb = error.response.data.error;
+        throw new Error(`FB [${fb.code}]: ${fb.message}`);
+      }
+      throw error;
+    }
+  }
+
   async fetchPaginated(endpoint, params, options = {}) {
     const results = [];
     const maxPages = options.maxPages || 25;
@@ -161,6 +201,36 @@ class InstagramAPI {
         data: []
       };
     }
+  }
+
+  async createImageContainer(instagramAccountId, imageUrl, caption = '') {
+    return this.rawPost(`/${instagramAccountId}/media`, {
+      access_token: this.token,
+      image_url: imageUrl,
+      caption
+    });
+  }
+
+  async publishMediaContainer(instagramAccountId, creationId) {
+    return this.rawPost(`/${instagramAccountId}/media_publish`, {
+      access_token: this.token,
+      creation_id: creationId
+    });
+  }
+
+  async publishSingleImage(instagramAccountId, imageUrl, caption = '') {
+    const container = await this.createImageContainer(instagramAccountId, imageUrl, caption);
+    const media = await this.publishMediaContainer(instagramAccountId, container.id);
+    return {
+      container_id: container.id,
+      media_id: media.id
+    };
+  }
+
+  async deleteMedia(mediaId) {
+    return this.rawDelete(`/${mediaId}`, {
+      access_token: this.token
+    });
   }
 }
 

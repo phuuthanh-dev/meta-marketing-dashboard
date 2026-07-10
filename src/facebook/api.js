@@ -440,6 +440,20 @@ class FacebookAPI {
     }
   }
 
+  async publishPhotoFeedPost(pageId, photoUrl, message = '', scheduledTime = null) {
+    const photo = await this.uploadPhoto(pageId, photoUrl, '', { published: false });
+    const publishOptions = this.buildScheduledPublishOptions(scheduledTime);
+    const post = await this.createPost(pageId, message, {
+      attached_media: JSON.stringify([{ media_fbid: photo.id }]),
+      ...publishOptions
+    });
+
+    return {
+      ...post,
+      photo_id: photo.id
+    };
+  }
+
   // Upload video to a page
   async uploadVideo(pageId, videoUrl, title = '', description = '', options = {}) {
     const pt = await this.getPageToken(pageId);
@@ -760,13 +774,12 @@ class FacebookAPI {
       scheduledTime = null
     } = media;
 
-    const publishOptions = this.buildScheduledPublishOptions(scheduledTime);
-
     if (mediaType === 'photo') {
-      return this.uploadPhoto(pageId, mediaUrl, message, publishOptions);
+      return this.publishPhotoFeedPost(pageId, mediaUrl, message, scheduledTime);
     }
 
     if (mediaType === 'video') {
+      const publishOptions = this.buildScheduledPublishOptions(scheduledTime);
       return this.uploadVideo(pageId, mediaUrl, title || message, message, publishOptions);
     }
 

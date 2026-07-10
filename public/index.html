@@ -8,11 +8,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/style.css?v=18">
+  <link rel="stylesheet" href="/css/style.css?v=24">
   <!-- Chart.js: local copy, no CDN dependency -->
   <script src="/js/vendor/chart.min.js" defer></script>
   <!-- All app JS: 10 files bundled + minified into 1 (39% smaller) -->
-  <script src="/dist/bundle.min.js?v=18" defer></script>
+  <script src="/dist/bundle.min.js?v=24" defer></script>
 </head>
 <body>
   <header class="header">
@@ -188,6 +188,13 @@
                 <label>Thời gian:</label>
                 <input type="datetime-local" id="scheduleTime">
               </div>
+              <div class="form-group posts-grid-two">
+                <label><input type="checkbox" id="publishInstagram"> Đăng thêm lên Instagram</label>
+              </div>
+              <div class="form-group posts-grid-two" id="instagramCrosspostGroup" style="display: none;">
+                <label>Tài khoản Instagram:</label>
+                <select id="postInstagramAccountSelect"><option value="">-- Chọn Instagram đã liên kết --</option></select>
+              </div>
               <div class="posts-primary-action">
                 <button type="submit" class="btn btn-primary">Đăng bài</button>
               </div>
@@ -204,6 +211,17 @@
               <button onclick="loadScheduledPosts()" class="btn btn-secondary">Làm mới</button>
             </div>
             <div id="scheduledPostsList" class="list-box">Chọn page để xem scheduled posts</div>
+          </div>
+          <div class="action-card">
+            <h3>&#x1F4F7; Quản lý dual publish</h3>
+            <div class="posts-toolbar">
+              <div class="posts-toolbar__meta">
+                <span class="posts-toolbar__title">Job Instagram và mapping Facebook</span>
+                <span class="posts-toolbar__hint">Xem lịch, retry, hủy hoặc xoá cặp FB+IG.</span>
+              </div>
+              <button onclick="loadDualPublishJobs()" class="btn btn-secondary">Làm mới</button>
+            </div>
+            <div id="dualPublishJobsList" class="list-box">Chọn page để xem job Instagram</div>
           </div>
           <div class="action-card">
             <h3>️ Xóa bài đăng</h3>
@@ -354,7 +372,7 @@
             <p class="section-description">Quản lý ảnh, video và albums</p>
           </div>
           <div class="action-card">
-            <h3>&#x1F4F8; Upload Photo</h3>
+            <h3>&#x1F4F8; Đăng ảnh lên Feed</h3>
             <div class="form-group">
               <label>Chọn Page:</label>
               <select id="uploadPhotoPageSelect"><option value="">-- Chọn page --</option></select>
@@ -364,10 +382,10 @@
               <input type="text" id="uploadPhotoUrl" placeholder="https://example.com/photo.jpg">
             </div>
             <div class="form-group">
-              <label>Caption:</label>
+              <label>Nội dung bài đăng:</label>
               <textarea id="uploadPhotoCaption" rows="2" placeholder="Mô tả ảnh..."></textarea>
             </div>
-            <button onclick="uploadPhoto()" class="btn btn-primary">Upload</button>
+            <button onclick="uploadPhoto()" class="btn btn-primary">Đăng ảnh</button>
             <div id="uploadPhotoResult" class="result-box"></div>
           </div>
           <div class="action-card">

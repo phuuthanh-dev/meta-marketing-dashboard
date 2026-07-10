@@ -90,7 +90,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const scheduleCheckbox = document.getElementById('schedulePost');
   const scheduleTimeGroup = document.getElementById('scheduleTimeGroup');
   const scheduleTimeInput = document.getElementById('scheduleTime');
+  const publishInstagramCheckbox = document.getElementById('publishInstagram');
+  const instagramCrosspostGroup = document.getElementById('instagramCrosspostGroup');
+  const instagramAccountSelect = document.getElementById('postInstagramAccountSelect');
   const resultBox = document.getElementById('createPostResult');
+  let linkedInstagramAccounts = [];
 
   function inferMediaTypeFromFile(file) {
     if (!file?.type) return '';
@@ -124,6 +128,55 @@ document.addEventListener('DOMContentLoaded', () => {
     return `https://www.facebook.com/${pageId}/posts/${entryId}`;
   }
 
+  async function loadLinkedInstagramAccounts() {
+    if (!instagramAccountSelect) return;
+    try {
+      const response = await fetch('/api/instagram/accounts');
+      const payload = await response.json();
+      linkedInstagramAccounts = payload.data || [];
+    } catch (_) {
+      linkedInstagramAccounts = [];
+    }
+    updateComposerFields();
+  }
+
+  function getInstagramAccountsForPage(pageId = pageSelect?.value || '') {
+    return linkedInstagramAccounts.filter(account => account.page_id === pageId);
+  }
+
+  function renderInstagramAccountOptions() {
+    if (!instagramAccountSelect) return;
+    const accounts = getInstagramAccountsForPage();
+    const previousValue = instagramAccountSelect.value;
+    instagramAccountSelect.innerHTML = '<option value="">-- Chọn Instagram đã liên kết --</option>' + accounts.map(account => {
+      const label = account.username ? `@${account.username}` : (account.name || account.id);
+      return `<option value="${account.id}">${escapeHtml(label)}</option>`;
+    }).join('');
+    if (previousValue && accounts.some(account => account.id === previousValue)) {
+      instagramAccountSelect.value = previousValue;
+    } else if (accounts.length === 1) {
+      instagramAccountSelect.value = accounts[0].id;
+    }
+  }
+
+  function updateInstagramCrosspostControls(mediaType) {
+    renderInstagramAccountOptions();
+    if (!publishInstagramCheckbox || !instagramCrosspostGroup) return;
+
+    const accounts = getInstagramAccountsForPage();
+    const canPublishInstagram = accounts.length > 0;
+    publishInstagramCheckbox.disabled = !canPublishInstagram;
+    publishInstagramCheckbox.title = canPublishInstagram
+      ? ''
+      : 'Chọn Page có Instagram đã liên kết';
+
+    if (!canPublishInstagram) {
+      publishInstagramCheckbox.checked = false;
+    }
+
+    instagramCrosspostGroup.style.display = publishInstagramCheckbox.checked ? 'block' : 'none';
+  }
+
   function renderComposerInfo(message) {
     if (!resultBox) return;
     resultBox.innerHTML = `<div class="composer-hint">${message}</div>`;
@@ -150,6 +203,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const usesMedia = Boolean(mediaType);
     const selectedFile = mediaFileInput?.files?.[0] || null;
     const pageLabel = getSelectedPageLabel();
+    updateInstagramCrosspostControls(mediaType);
 
     if (mediaTitleGroup) {
       mediaTitleGroup.style.display = mediaType === 'video' ? 'block' : 'none';
@@ -185,6 +239,7 @@ document.addEventListener('DOMContentLoaded', () => {
         `Sẵn sàng đăng ${escapeHtml(mediaType)} bằng URL${pageLabel ? ` tới <strong>${escapeHtml(pageLabel)}</strong>` : ''}.`
       );
     }
+
   }
 
   if (form) {
@@ -200,6 +255,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const mediaTitle = mediaTitleInput ? mediaTitleInput.value.trim() : '';
       const schedule = scheduleCheckbox ? scheduleCheckbox.checked : false;
       const scheduleTime = scheduleTimeInput ? scheduleTimeInput.value : '';
+      const publishInstagram = publishInstagramCheckbox ? publishInstagramCheckbox.checked : false;
+      const instagramAccountId = instagramAccountSelect ? instagramAccountSelect.value : '';
       
       if (!pageId) {
         resultBox.innerHTML = '<div class="error">Vui lòng chọn page</div>';
@@ -220,6 +277,17 @@ document.addEventListener('DOMContentLoaded', () => {
         resultBox.innerHTML = '<div class="error">Vui lòng chọn thời gian lên lịch</div>';
         return;
       }
+
+      if (publishInstagram) {
+        if (mediaType !== 'photo') {
+          resultBox.innerHTML = '<div class="error">Đăng kép lên Instagram hiện chỉ hỗ trợ bài ảnh</div>';
+          return;
+        }
+        if (!instagramAccountId) {
+          resultBox.innerHTML = '<div class="error">Vui lòng chọn tài khoản Instagram đã liên kết</div>';
+          return;
+        }
+      }
       
       resultBox.innerHTML = '<div class="loading">Đang xử lý bài đăng...</div>';
       
@@ -230,6 +298,8 @@ document.addEventListener('DOMContentLoaded', () => {
         formData.append('mediaUrl', mediaUrl);
         formData.append('title', mediaTitle);
         formData.append('schedule', schedule ? 'true' : 'false');
+        formData.append('publishInstagram', publishInstagram ? 'true' : 'false');
+        formData.append('instagramAccountId', instagramAccountId);
 
         if (schedule && scheduleTime) {
           formData.append('scheduledTime', new Date(scheduleTime).toISOString());
@@ -253,10 +323,10 @@ document.addEventListener('DOMContentLoaded', () => {
           const responseMediaType = result.meta?.mediaType && result.meta.mediaType !== 'text'
             ? result.meta.mediaType
             : 'text';
-          const contentId = result.data?.id || '';
+          const contentId = result.data?.photo_id || result.data?.video_id || result.data?.id || '';
           const publishedPostId = result.data?.post_id || result.data?.id || '';
           const cloudinaryUrl = result.meta?.cloudinary?.secure_url || result.meta?.mediaUrl || '';
-          const postUrl = buildFacebookPostUrl(publishedPostId);
+          const postUrl = result.data?.permalink_url || buildFacebookPostUrl(publishedPostId);
           const fileLabel = mediaFile ? `File local: ${mediaFile.name}` : (mediaUrl ? 'Media URL' : 'Text only');
           const previewHtml = responseMediaType === 'photo' && cloudinaryUrl
             ? `<img class="publish-preview-image" src="${cloudinaryUrl}" alt="Uploaded preview">`
@@ -264,6 +334,14 @@ document.addEventListener('DOMContentLoaded', () => {
           const postLinkHtml = postUrl
             ? `<a class="publish-link" href="${postUrl}" target="_blank" rel="noopener noreferrer">Mở bài đăng trên Facebook</a>`
             : '';
+          const instagramMeta = result.meta?.instagram || {};
+          const instagramStatus = instagramMeta.requested
+            ? (instagramMeta.status === 'published'
+              ? `Đã đăng @${instagramMeta.username || instagramMeta.account_id || ''}`
+              : instagramMeta.status === 'scheduled'
+                ? `Đã xếp lịch @${instagramMeta.username || instagramMeta.account_id || ''}`
+              : `Lỗi: ${instagramMeta.error || 'Không đăng được Instagram'}`)
+            : 'Không';
 
           resultBox.innerHTML = `
             <div class="publish-feedback">
@@ -273,6 +351,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div><span class="publish-label">Media</span><strong>${escapeHtml(responseMediaType)}</strong></div>
                 <div><span class="publish-label">Post ID</span><strong>${escapeHtml(publishedPostId || result.data?.id || 'N/A')}</strong></div>
                 <div><span class="publish-label">Content ID</span><strong>${escapeHtml(contentId || 'N/A')}</strong></div>
+                <div><span class="publish-label">Instagram</span><strong>${escapeHtml(instagramStatus)}</strong></div>
                 <div><span class="publish-label">Nguồn</span><strong>${escapeHtml(fileLabel)}</strong></div>
               </div>
               ${previewHtml}
@@ -287,6 +366,9 @@ document.addEventListener('DOMContentLoaded', () => {
             scheduleTimeGroup.style.display = 'none';
           }
           updateComposerFields();
+          if (instagramMeta.requested) {
+            loadDualPublishJobs();
+          }
         }
       } catch (error) {
         resultBox.innerHTML = `<div class="error">Lỗi: ${error.message}</div>`;
@@ -298,6 +380,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (scheduleCheckbox && scheduleTimeGroup) {
     scheduleCheckbox.addEventListener('change', (e) => {
       scheduleTimeGroup.style.display = e.target.checked ? 'block' : 'none';
+      updateComposerFields();
     });
   }
 
@@ -321,6 +404,10 @@ document.addEventListener('DOMContentLoaded', () => {
     pageSelect.addEventListener('change', updateComposerFields);
   }
 
+  if (publishInstagramCheckbox) {
+    publishInstagramCheckbox.addEventListener('change', updateComposerFields);
+  }
+
   if (scheduledPageSelect) {
     scheduledPageSelect.addEventListener('change', () => {
       if (scheduledPageSelect.value) {
@@ -329,6 +416,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  loadLinkedInstagramAccounts().catch(() => {});
   updateComposerFields();
 });
 
@@ -379,6 +467,124 @@ async function loadScheduledPosts() {
     listBox.innerHTML = html;
   } catch (error) {
     listBox.innerHTML = `<div class="error">Lỗi: ${error.message}</div>`;
+  }
+}
+
+function getDualPublishStatusLabel(status) {
+  const labels = {
+    scheduled: 'Chờ đăng IG',
+    publishing: 'Đang đăng IG',
+    published: 'Đã đăng IG',
+    error: 'Lỗi IG',
+    canceled: 'Đã hủy',
+    delete_error: 'Lỗi xoá',
+    deleted: 'Đã xoá'
+  };
+  return labels[status] || status || 'N/A';
+}
+
+async function loadDualPublishJobs() {
+  const pageId = getMasterPageSelect()?.value || '';
+  const listBox = document.getElementById('dualPublishJobsList');
+  if (!listBox) return;
+
+  if (!pageId) {
+    listBox.innerHTML = '<div class="error">Vui lòng chọn page</div>';
+    return;
+  }
+
+  listBox.innerHTML = '<div class="loading">Đang tải job Instagram...</div>';
+
+  try {
+    const response = await fetch('/api/dual-publish/jobs?limit=100');
+    const result = await response.json();
+    if (result.error) {
+      listBox.innerHTML = `<div class="error">Lỗi: ${result.error}</div>`;
+      return;
+    }
+
+    const jobs = (result.data || []).filter(job => job.page_id === pageId);
+    if (jobs.length === 0) {
+      listBox.innerHTML = '<div class="empty">Không có job Instagram cho page này</div>';
+      return;
+    }
+
+    let html = '<table class="data-table"><thead><tr><th>Job</th><th>Instagram</th><th>Facebook Post</th><th>Giờ đăng</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>';
+    jobs.forEach(job => {
+      const scheduledTime = job.scheduled_time ? new Date(job.scheduled_time).toLocaleString('vi-VN') : 'N/A';
+      const canCancel = job.status === 'scheduled';
+      const canRetry = job.status === 'error';
+      const canDelete = ['published', 'error', 'delete_error'].includes(job.status)
+        && ((job.facebook_post_id && !job.facebook_deleted_at) || (job.instagram_media_id && !job.instagram_deleted_at));
+      const statusDetails = [
+        job.publish_error ? escapeHtml(job.publish_error) : '',
+        job.delete_error ? escapeHtml(job.delete_error) : '',
+        job.facebook_deleted_at ? 'Facebook đã xoá' : '',
+        job.instagram_deleted_at ? 'Instagram đã xoá' : ''
+      ].filter(Boolean).join('<br>');
+      const actions = [
+        canRetry ? `<button onclick="retryDualPublishJob('${job.id}')" class="btn btn-secondary btn-small">Retry</button>` : '',
+        canCancel ? `<button onclick="cancelDualPublishJob('${job.id}')" class="btn btn-danger btn-small">Hủy</button>` : '',
+        canDelete ? `<button onclick="deleteDualPublishJob('${job.id}')" class="btn btn-danger btn-small">Xóa FB+IG</button>` : ''
+      ].filter(Boolean).join(' ');
+      html += `<tr>
+        <td>${escapeHtml(job.id)}</td>
+        <td>${escapeHtml(job.instagram_username ? `@${job.instagram_username}` : job.instagram_account_id)}</td>
+        <td>${escapeHtml(job.facebook_post_id || 'N/A')}</td>
+        <td>${escapeHtml(scheduledTime)}</td>
+        <td>${escapeHtml(getDualPublishStatusLabel(job.status))}${statusDetails ? `<br><small>${statusDetails}</small>` : ''}</td>
+        <td>${actions || '-'}</td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+    listBox.innerHTML = html;
+  } catch (error) {
+    listBox.innerHTML = `<div class="error">Lỗi: ${error.message}</div>`;
+  }
+}
+
+async function cancelDualPublishJob(jobId) {
+  if (!confirm('Hủy job Instagram này? Nếu Facebook scheduled post chưa tới giờ, app cũng sẽ cố hủy bài Facebook đã lên lịch.')) return;
+
+  try {
+    const response = await fetch(`/api/dual-publish/jobs/${encodeURIComponent(jobId)}/cancel`, { method: 'POST' });
+    const result = await response.json();
+    if (result.error) {
+      alert(`Lỗi: ${result.error}`);
+    }
+    loadDualPublishJobs();
+    loadScheduledPosts();
+  } catch (error) {
+    alert(`Lỗi: ${error.message}`);
+  }
+}
+
+async function retryDualPublishJob(jobId) {
+  try {
+    const response = await fetch(`/api/dual-publish/jobs/${encodeURIComponent(jobId)}/retry`, { method: 'POST' });
+    const result = await response.json();
+    if (result.error) {
+      alert(`Lỗi: ${result.error}`);
+    }
+    loadDualPublishJobs();
+  } catch (error) {
+    alert(`Lỗi: ${error.message}`);
+  }
+}
+
+async function deleteDualPublishJob(jobId) {
+  if (!confirm('Xóa cả Facebook post và Instagram media của dual publish này? Hành động này không thể hoàn tác.')) return;
+
+  try {
+    const response = await fetch(`/api/dual-publish/jobs/${encodeURIComponent(jobId)}`, { method: 'DELETE' });
+    const result = await response.json();
+    if (result.error) {
+      alert(`Lỗi: ${result.error}`);
+    }
+    loadDualPublishJobs();
+    loadScheduledPosts();
+  } catch (error) {
+    alert(`Lỗi: ${error.message}`);
   }
 }
 
@@ -825,14 +1031,19 @@ function initPhase1Selectors() {
           updateComposerFields();
 
           const scheduledList = document.getElementById('scheduledPostsList');
+          const dualPublishJobsList = document.getElementById('dualPublishJobsList');
           const deleteResult = document.getElementById('deletePostResult');
           if (scheduledList) {
             if (masterSelect.value) {
               const pageLabel = masterSelect.options[masterSelect.selectedIndex]?.textContent || masterSelect.value;
               scheduledList.innerHTML = `<div class="loading">Đang tải scheduled posts cho ${escapeHtml(pageLabel)}...</div>`;
               loadScheduledPosts();
+              loadDualPublishJobs();
             } else {
               scheduledList.innerHTML = 'Chọn page để xem scheduled posts';
+              if (dualPublishJobsList) {
+                dualPublishJobsList.innerHTML = 'Chọn page để xem job Instagram';
+              }
             }
           }
 
