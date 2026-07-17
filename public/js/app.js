@@ -7,6 +7,7 @@ class App {
       pages: [],
       aggregated: null
     };
+    this.contentPlanInitialized = false;
     this.init();
   }
 
@@ -50,6 +51,11 @@ class App {
         document.dispatchEvent(new CustomEvent('app:tab-changed', {
           detail: { tab: targetTab }
         }));
+
+        if (targetTab === 'content-plan' && !this.contentPlanInitialized && typeof window.initContentPlan === 'function') {
+          this.contentPlanInitialized = true;
+          window.initContentPlan();
+        }
       });
     });
 

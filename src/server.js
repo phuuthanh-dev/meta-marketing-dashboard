@@ -14,6 +14,7 @@ const InstagramFetcher = require('./instagram/fetcher');
 const CloudinaryService = require('./cloudinary');
 const config = require('./config');
 const WebSocket = require('ws');
+const contentPlanRouter = require('./content-plan');
 const PUBLIC_DIR = path.resolve(__dirname, '..', 'public');
 
 // Rate limiter: tối đa 10 lần thử login trong 15 phút
@@ -947,7 +948,7 @@ class Server {
       return false;
     }
 
-    if (req.path === '/api/ads/sync' || req.path === '/api/instagram/sync') {
+    if (req.path === '/api/ads/sync' || req.path === '/api/instagram/sync' || req.path === '/api/content-plan/sync') {
       return false;
     }
 
@@ -976,6 +977,7 @@ class Server {
     }
 
     return [
+      /^\/api\/content-plan\/[^/]+\/publish$/,
       /^\/api\/pages\/[^/]+\/posts(?:\/schedule)?$/,
       /^\/api\/pages\/[^/]+\/publish$/,
       /^\/api\/dual-publish\/jobs\/[^/]+(?:\/(?:cancel|retry))?$/,
@@ -1386,6 +1388,9 @@ class Server {
       etag: true
     }));
     this.app.use(express.static(PUBLIC_DIR, { etag: true }));
+
+    // Content Plan router
+    this.app.use('/api/content-plan', contentPlanRouter);
 
     this.app.post('/api/pages/:id/publish', upload.single('mediaFile'), async (req, res) => {
       try {

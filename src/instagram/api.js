@@ -1,6 +1,23 @@
 const axios = require('axios');
 const config = require('../config');
 
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function createFacebookError(fb) {
+  const error = new Error(`FB [${fb.code}]: ${fb.message}`);
+  error.fbCode = fb.code;
+  error.fbSubcode = fb.error_subcode;
+  error.fbType = fb.type;
+  error.fbTraceId = fb.fbtrace_id;
+  return error;
+}
+
+function isMediaNotReadyError(error) {
+  return error?.fbCode === 9007 || /Media ID is not available|FB \[9007\]/i.test(error?.message || '');
+}
+
 class InstagramAPI {
   constructor(token) {
     this.token = token;
@@ -24,8 +41,7 @@ class InstagramAPI {
       return response.data;
     } catch (error) {
       if (error.response?.data?.error) {
-        const fb = error.response.data.error;
-        throw new Error(`FB [${fb.code}]: ${fb.message}`);
+        throw createFacebookError(error.response.data.error);
       }
       throw error;
     }
@@ -44,8 +60,7 @@ class InstagramAPI {
       return response.data;
     } catch (error) {
       if (error.response?.data?.error) {
-        const fb = error.response.data.error;
-        throw new Error(`FB [${fb.code}]: ${fb.message}`);
+        throw createFacebookError(error.response.data.error);
       }
       throw error;
     }
@@ -64,8 +79,7 @@ class InstagramAPI {
       return response.data;
     } catch (error) {
       if (error.response?.data?.error) {
-        const fb = error.response.data.error;
-        throw new Error(`FB [${fb.code}]: ${fb.message}`);
+        throw createFacebookError(error.response.data.error);
       }
       throw error;
     }
@@ -204,11 +218,64 @@ class InstagramAPI {
   }
 
   async createImageContainer(instagramAccountId, imageUrl, caption = '') {
+    const instagramImageUrl = this.prepareImageUrlForInstagram(imageUrl);
     return this.rawPost(`/${instagramAccountId}/media`, {
       access_token: this.token,
-      image_url: imageUrl,
+      image_url: instagramImageUrl,
       caption
     });
+  }
+
+  prepareImageUrlForInstagram(imageUrl) {
+    const url = String(imageUrl || '').trim();
+    if (!url) return url;
+
+    if (/res\.cloudinary\.com\/[^/]+\/image\/upload\//i.test(url) && !/\/image\/upload\/[^/]*f_(jpg|jpeg)/i.test(url)) {
+      return url.replace('/image/upload/', '/image/upload/f_jpg,q_auto/');
+    }
+
+    return url;
+  }
+
+  async getMediaContainerStatus(containerId) {
+    return this.rawGet(`/${containerId}`, {
+      access_token: this.token,
+      fields: 'id,status,status_code'
+    });
+  }
+
+  async waitForMediaContainer(containerId, options = {}) {
+    const maxAttempts = options.maxAttempts || 8;
+    const delayMs = options.delayMs || 5000;
+    let lastStatus = null;
+    let statusCheckFailed = false;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const status = await this.getMediaContainerStatus(containerId);
+        lastStatus = status.status_code || status.status || 'UNKNOWN';
+
+        if (lastStatus === 'FINISHED') return status;
+        if (lastStatus === 'ERROR' || lastStatus === 'EXPIRED') {
+          throw new Error(`Instagram media container ${containerId} status ${lastStatus}`);
+        }
+      } catch (error) {
+        if (!options.allowStatusCheckFailure) throw error;
+        statusCheckFailed = true;
+      }
+
+      if (attempt < maxAttempts) {
+        await sleep(delayMs);
+      }
+    }
+
+    if (statusCheckFailed && options.allowStatusCheckFailure) {
+      return { id: containerId, status_code: 'UNKNOWN' };
+    }
+
+    const error = new Error(`Instagram media container ${containerId} chưa sẵn sàng để publish (${lastStatus || 'UNKNOWN'}).`);
+    error.retryable = true;
+    throw error;
   }
 
   async publishMediaContainer(instagramAccountId, creationId) {
@@ -218,13 +285,49 @@ class InstagramAPI {
     });
   }
 
-  async publishSingleImage(instagramAccountId, imageUrl, caption = '') {
-    const container = await this.createImageContainer(instagramAccountId, imageUrl, caption);
-    const media = await this.publishMediaContainer(instagramAccountId, container.id);
-    return {
-      container_id: container.id,
-      media_id: media.id
-    };
+  async publishSingleImage(instagramAccountId, imageUrl, caption = '', options = {}) {
+    const container = options.existingContainerId
+      ? { id: options.existingContainerId }
+      : await this.createImageContainer(instagramAccountId, imageUrl, caption);
+
+    if (!options.existingContainerId && typeof options.onContainerCreated === 'function') {
+      await options.onContainerCreated(container);
+    }
+
+    const retryDelays = options.publishRetryDelaysMs || [0, 10000, 20000, 30000];
+    let lastError = null;
+
+    for (let attempt = 0; attempt < retryDelays.length; attempt++) {
+      if (retryDelays[attempt] > 0) {
+        await sleep(retryDelays[attempt]);
+      }
+
+      try {
+        await this.waitForMediaContainer(container.id, {
+          maxAttempts: options.containerPollAttempts || 6,
+          delayMs: options.containerPollDelayMs || 5000,
+          allowStatusCheckFailure: true
+        });
+
+        const media = await this.publishMediaContainer(instagramAccountId, container.id);
+        return {
+          container_id: container.id,
+          media_id: media.id,
+          image_url: this.prepareImageUrlForInstagram(imageUrl)
+        };
+      } catch (error) {
+        lastError = error;
+        if (!error.retryable && !isMediaNotReadyError(error)) {
+          throw error;
+        }
+      }
+    }
+
+    throw lastError;
+  }
+
+  isMediaNotReadyError(error) {
+    return isMediaNotReadyError(error);
   }
 
   async deleteMedia(mediaId) {

@@ -192,5 +192,15 @@ module.exports = {
 
   schedule: {
     daily: '0 6 * * *'
+  },
+
+  contentPlan: {
+    sheetId: process.env.CONTENT_PLAN_SHEET_ID || '',
+    driveFolderId: process.env.CONTENT_PLAN_DRIVE_FOLDER_ID || '',
+    serviceAccountPath: process.env.GOOGLE_SERVICE_ACCOUNT_PATH || '',
+    sheetName: process.env.CONTENT_PLAN_SHEET_NAME || 'Trang tính1',
+    startRow: parseInt(process.env.CONTENT_PLAN_START_ROW, 10) || 3,
+    endColumn: process.env.CONTENT_PLAN_END_COLUMN || 'ZZ',
+    range: process.env.CONTENT_PLAN_RANGE || ''
   }
 };

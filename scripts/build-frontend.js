@@ -27,6 +27,7 @@ const JS_FILES = [
   'js/additional-charts.js', // extra charts — cần phase3
   'js/ads.js',           // ads module — cần app
   'js/instagram.js',     // instagram module — cần app
+  'js/content-plan.js',  // content plan module — cần app
 ].map(f => path.join(PUBLIC, f));
 
 async function build() {

@@ -34,6 +34,7 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "express-rate-limit": "^8.5.2",
+    "googleapis": "^144.0.0",
     "multer": "^2.0.2",
     "node-cron": "^4.5.0",
     "ws": "^8.21.0"

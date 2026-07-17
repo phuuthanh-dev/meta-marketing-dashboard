@@ -416,6 +416,24 @@ class DB {
         FOREIGN KEY (page_id) REFERENCES pages(id) ON DELETE SET NULL,
         FOREIGN KEY (instagram_account_id) REFERENCES instagram_accounts(id) ON DELETE SET NULL
       );
+
+      CREATE TABLE IF NOT EXISTS content_plan_items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        content_code TEXT UNIQUE NOT NULL,
+        scheduled_at TEXT,
+        channel TEXT DEFAULT 'facebook',
+        image_filename TEXT,
+        drive_post_link TEXT,
+        title TEXT,
+        caption TEXT,
+        format TEXT DEFAULT 'image',
+        post_url TEXT,
+        status TEXT DEFAULT 'pending',
+        published_page_id TEXT,
+        published_ig_media_id TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
     `);
 
     // Create indexes for better query performance
@@ -453,6 +471,8 @@ class DB {
       CREATE INDEX IF NOT EXISTS idx_dual_publish_jobs_status_time ON dual_publish_jobs(status, scheduled_time);
       CREATE INDEX IF NOT EXISTS idx_dual_publish_jobs_page ON dual_publish_jobs(page_id);
       CREATE INDEX IF NOT EXISTS idx_dual_publish_jobs_instagram_account ON dual_publish_jobs(instagram_account_id);
+      CREATE INDEX IF NOT EXISTS idx_content_plan_items_scheduled ON content_plan_items(scheduled_at);
+      CREATE INDEX IF NOT EXISTS idx_content_plan_items_status ON content_plan_items(status);
     `);
 
     // Migration: Add fan_count and followers_count columns if they don't exist
@@ -497,6 +517,19 @@ class DB {
         // Column already exists
       }
     }
+
+    this.db.exec(`
+      UPDATE content_plan_items
+      SET status = CASE
+        WHEN UPPER(status) = 'DONE' THEN 'done'
+        WHEN UPPER(status) = 'SCHEDULED' THEN 'scheduled'
+        WHEN UPPER(status) IN ('SKIP', 'SKIPPED') THEN 'skipped'
+        WHEN UPPER(status) = 'ERROR' THEN 'error'
+        WHEN status IS NULL OR TRIM(status) = '' THEN 'pending'
+        ELSE LOWER(status)
+      END
+    `);
+
     for (const { table, columns } of [
       {
         table: 'ad_campaign_drafts',
@@ -2460,6 +2493,16 @@ class DB {
     return this.getDualPublishJob(id);
   }
 
+  markDualPublishJobContainer(id, containerId) {
+    this.db.prepare(`
+      UPDATE dual_publish_jobs
+      SET instagram_container_id = ?,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(containerId || '', id);
+    return this.getDualPublishJob(id);
+  }
+
   markDualPublishJobPublished(id, result = {}) {
     const now = new Date().toISOString();
     this.db.prepare(`
@@ -2488,6 +2531,17 @@ class DB {
         updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `).run(String(errorMessage || 'Unknown Instagram publish error'), id);
+    return this.getDualPublishJob(id);
+  }
+
+  deferDualPublishJobRetry(id, errorMessage) {
+    this.db.prepare(`
+      UPDATE dual_publish_jobs
+      SET status = 'scheduled',
+        publish_error = ?,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(String(errorMessage || 'Instagram media chưa sẵn sàng, sẽ retry tự động.'), id);
     return this.getDualPublishJob(id);
   }
 
@@ -2682,6 +2736,69 @@ class DB {
       city: [],
       locale: []
     };
+  }
+
+  // Content Plan methods
+  getContentPlanItems() {
+    return this.db.prepare(`
+      SELECT * FROM content_plan_items
+      ORDER BY scheduled_at ASC
+    `).all();
+  }
+
+  getContentPlanItem(id) {
+    return this.db.prepare(`
+      SELECT * FROM content_plan_items
+      WHERE id = ?
+    `).get(id);
+  }
+
+  clearContentPlanItems() {
+    return this.db.prepare('DELETE FROM content_plan_items').run().changes;
+  }
+
+  upsertContentPlanItem(item) {
+    this.db.prepare(`
+      INSERT INTO content_plan_items (
+        content_code, scheduled_at, channel, image_filename, drive_post_link,
+        title, caption, format, post_url, status
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(content_code) DO UPDATE SET
+        scheduled_at=excluded.scheduled_at,
+        channel=excluded.channel,
+        image_filename=excluded.image_filename,
+        drive_post_link=excluded.drive_post_link,
+        title=excluded.title,
+        caption=excluded.caption,
+        format=excluded.format,
+        post_url=excluded.post_url,
+        status=excluded.status,
+        updated_at=CURRENT_TIMESTAMP
+    `).run(
+      item.content_code,
+      item.scheduled_at,
+      item.channel || 'facebook',
+      item.image_filename,
+      item.drive_post_link,
+      item.title,
+      item.caption,
+      item.format || 'image',
+      item.post_url,
+      item.status || 'pending'
+    );
+  }
+
+  updateContentPlanStatus(id, status, postUrl = null, pageId = null, igMediaId = null) {
+    this.db.prepare(`
+      UPDATE content_plan_items
+      SET status = ?,
+          post_url = COALESCE(?, post_url),
+          published_page_id = COALESCE(?, published_page_id),
+          published_ig_media_id = COALESCE(?, published_ig_media_id),
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(status, postUrl, pageId, igMediaId, id);
   }
 
   close() {

@@ -5,6 +5,8 @@ node_modules/
 .env
 .env.local
 .env.*.local
+google-service-account*.json
+service-account*.json
 
 # Database
 data/

@@ -5,6 +5,13 @@ const InstagramFetcher = require('./instagram/fetcher');
 const InstagramAPI = require('./instagram/api');
 const Database = require('./database');
 const config = require('./config');
+const { syncContentPlan } = require('./content-plan/sheets-sync');
+
+function isInstagramMediaNotReadyError(error) {
+  return error?.fbCode === 9007
+    || error?.retryable
+    || /Media ID is not available|FB \[9007\]|chưa sẵn sàng/i.test(error?.message || '');
+}
 
 class Scheduler {
   constructor() {
@@ -21,10 +28,22 @@ class Scheduler {
 
     console.log('Scheduler started');
     console.log(`   Daily job: ${config.schedule.daily}`);
+    console.log(`   Content Plan sync: every hour at minute 0`);
 
     cron.schedule(config.schedule.daily, () => {
       console.log('\nRunning scheduled daily fetch...');
       this.fetchAll();
+    });
+
+    // Sync Content Plan từ Google Sheet mỗi giờ
+    cron.schedule('0 * * * *', async () => {
+      console.log('\n[Content Plan] Running scheduled sheet sync...');
+      try {
+        await syncContentPlan();
+        console.log('[Content Plan] ✓ Scheduled sync completed');
+      } catch (err) {
+        console.error('[Content Plan] ✗ Scheduled sync failed:', err.message);
+      }
     });
 
     cron.schedule('* * * * *', () => {
@@ -117,12 +136,25 @@ class Scheduler {
       const result = await api.publishSingleImage(
         runningJob.instagram_account_id,
         runningJob.media_url,
-        runningJob.message || ''
+        runningJob.message || '',
+        {
+          existingContainerId: runningJob.instagram_container_id || '',
+          onContainerCreated: container => this.db.markDualPublishJobContainer(runningJob.id, container.id),
+          containerPollAttempts: 6,
+          containerPollDelayMs: 5000,
+          publishRetryDelaysMs: [0, 10000, 20000, 30000]
+        }
       );
 
       this.db.markDualPublishJobPublished(runningJob.id, result);
       console.log(`Dual publish Instagram job ${runningJob.id} published: ${result.media_id}`);
     } catch (err) {
+      if (isInstagramMediaNotReadyError(err) && runningJob.attempts < 8) {
+        this.db.deferDualPublishJobRetry(runningJob.id, `${err.message} — sẽ retry tự động.`);
+        console.warn(`Dual publish Instagram job ${runningJob.id} not ready, deferred retry: ${err.message}`);
+        return;
+      }
+
       this.db.markDualPublishJobError(runningJob.id, err.message);
       console.error(`Dual publish Instagram job ${runningJob.id} failed: ${err.message}`);
     }
